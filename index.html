@@ -260,13 +260,19 @@ const PAGE_SIZE = 25; // sitede de sayfa başına 25 ürün var
 async function apiPost(path, body) {
   const target = API + path;
   const url = db.config.proxy ? db.config.proxy + encodeURIComponent(target) : target;
-  const send = () => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) });
+  const send = () => {
+    const c = new AbortController(), t = setTimeout(() => c.abort(), 15000); // cevap gelmezse 15 sn sonra vazgeç
+    return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body), signal: c.signal }).finally(() => clearTimeout(t));
+  };
   let res;
   try {
     try { res = await send(); }
-    catch { await sleep(2000); res = await send(); } // geçici ağ hatası olabilir, bir kez daha dene
-  } catch {
-    const e = new Error(`marketfiyati.org.tr'ye bağlanılamadı [${path}]. İnternet yoksa, site isteği reddetmişse veya tarayıcı doğrudan erişimi engelliyorsa (CORS) bu hata çıkar. Ayarlar > Gelişmiş > "Bağlantıyı test et" ile hangi adımda takıldığına bakabilirsin.`);
+    catch { await sleep(1000); res = await send(); } // geçici ağ hatası olabilir, bir kez daha dene
+  } catch (err) {
+    const timeout = err && err.name === 'AbortError';
+    const e = new Error(timeout
+      ? `marketfiyati.org.tr 15 saniyede cevap vermedi [${path}]. Bağlantını kontrol edip tekrar dene.`
+      : `marketfiyati.org.tr'ye bağlanılamadı [${path}]. İnternet yoksa, site isteği reddetmişse veya tarayıcı doğrudan erişimi engelliyorsa (CORS) bu hata çıkar. Ayarlar > Gelişmiş > "Bağlantıyı test et" ile hangi adımda takıldığına bakabilirsin.`);
     e.network = true; throw e;
   }
   if (!res.ok) throw new Error(`Kaynak ${res.status} döndürdü [${path}]`);
@@ -337,15 +343,15 @@ async function search(body) {
   return data;
 }
 async function lookup(w) {
-  // Önce ürün kimliğiyle ara; olmazsa (hata veya boş sonuç) ürün adıyla ara, arama ekranında yaptığımız gibi.
-  let hit = null;
-  try { hit = (await source({ identity: w.id, keywords: w.title })).find((p) => p.id === w.id); } catch { /* adla aramayı dene */ }
-  for (let page = 0; !hit && page < 3; page++) {
-    const r = await source({ keywords: w.title, pages: page });
-    hit = r.find((p) => p.id === w.id);
-    if (!r.length) break;
+  // Demo: sahte kaynak kimlikle bulur. Gerçek: ürünü adıyla ara (arama ekranındaki gibi), kimliği eşleşeni al.
+  if (db.config.demo) return (await mockSearch({ identity: w.id })).find((p) => p.id === w.id) || null;
+  for (let page = 0; page < 3; page++) {
+    const r = await realSearch({ keywords: w.title, pages: page });
+    const hit = r.find((p) => p.id === w.id);
+    if (hit) return hit;
+    if (!r.length || (r.total && (page + 1) * PAGE_SIZE >= r.total)) break;
   }
-  return hit || null;
+  return null;
 }
 
 async function notify(title, message) {
@@ -357,53 +363,79 @@ async function notify(title, message) {
 }
 
 // ---------- Fiyat kontrolü ----------
-let checking = false;
-async function checkAll() {
-  if (checking) return [];
-  checking = true;
-  const errors = [];
+let checking = false, checkStartedAt = 0;
+// Tek ürünün güncel fiyatını bulur; geçmişe, akışa ve bildirime işler
+async function checkOne(w, res) {
+  const fresh = await lookup(w);
+  const now = new Date().toISOString();
+  if (!fresh) { w.lastError = 'Ürün bu konumdaki şubelerde bulunamadı'; res.missing++; return; }
+  w.lastError = null; res.checked++;
+  const { price, market } = fresh.best;
+  const prev = w.last?.price;
+  const lastHist = w.history[w.history.length - 1];
+  if (!lastHist || lastHist.price !== price || Date.now() - Date.parse(lastHist.t) > 12 * 3600e3) {
+    w.history.push({ t: now, price, market });
+    if (w.history.length > 400) w.history.shift();
+  }
+  const fmt = (n) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺';
+  if (prev != null && Math.abs(price - prev) >= 0.005) {
+    res.changed++;
+    const pct = ((price - prev) / prev) * 100, down = pct < 0;
+    db.feed.unshift({ t: now, id: w.id, title: w.title, kind: down ? 'down' : 'up', from: prev, to: price, market });
+    if (Math.abs(pct) >= db.config.minDropPercent && (down || db.config.notifyRise !== false))
+      notify(down ? 'Fiyat düştü' : 'Fiyat arttı', `${w.title}: ${fmt(prev)} → ${fmt(price)} (%${Math.abs(pct).toFixed(1).replace('.', ',')} ${down ? 'düştü' : 'arttı'}) · ${market}`);
+  }
+  if (w.targetPrice && price <= w.targetPrice && !(prev != null && prev <= w.targetPrice)) {
+    db.feed.unshift({ t: now, id: w.id, title: w.title, kind: 'target', from: prev ?? null, to: price, market });
+    notify('Hedef fiyata ulaştı', `${w.title}: ${fmt(price)} · ${market} (hedef ${fmt(w.targetPrice)})`);
+  }
+  w.last = { price, market, checkedAt: now, offers: fresh.offers.slice(0, 5) };
+  if (fresh.imageUrl && !w.imageUrl) w.imageUrl = fresh.imageUrl;
+}
+async function checkAll(onProgress) {
+  const res = { total: db.watch.length, checked: 0, changed: 0, missing: 0, errors: [], skipped: false };
+  // Takılı kalmış eski bir kontrol varsa (uygulama arka planda donmuş olabilir) 2 dakika sonra yenisine izin ver
+  if (checking && Date.now() - checkStartedAt < 120000) { res.skipped = true; return res; }
+  checking = true; checkStartedAt = Date.now();
   try {
     mockTick++;
-    for (const w of db.watch) {
-      try {
-        const fresh = await lookup(w);
-        if (!fresh) { w.lastError = 'Ürün şu an bu konumdaki şubelerde bulunamadı'; continue; }
-        w.lastError = null;
-        const { price, market } = fresh.best;
-        const prev = w.last?.price, now = new Date().toISOString();
-        const lastHist = w.history[w.history.length - 1];
-        if (!lastHist || lastHist.price !== price || Date.now() - Date.parse(lastHist.t) > 12 * 3600e3) {
-          w.history.push({ t: now, price, market });
-          if (w.history.length > 400) w.history.shift();
-        }
-        const fmt = (n) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺';
-        if (prev != null && Math.abs(price - prev) >= 0.005) {
-          const pct = ((price - prev) / prev) * 100, down = pct < 0;
-          db.feed.unshift({ t: now, id: w.id, title: w.title, kind: down ? 'down' : 'up', from: prev, to: price, market });
-          if (Math.abs(pct) >= db.config.minDropPercent && (down || db.config.notifyRise !== false))
-            notify(down ? 'Fiyat düştü' : 'Fiyat arttı', `${w.title}: ${fmt(prev)} → ${fmt(price)} (%${Math.abs(pct).toFixed(1).replace('.', ',')} ${down ? 'düştü' : 'arttı'}) · ${market}`);
-        }
-        if (w.targetPrice && price <= w.targetPrice && !(prev != null && prev <= w.targetPrice)) {
-          db.feed.unshift({ t: now, id: w.id, title: w.title, kind: 'target', from: prev ?? null, to: price, market });
-          notify('Hedef fiyata ulaştı', `${w.title}: ${fmt(price)} · ${market} (hedef ${fmt(w.targetPrice)})`);
-        }
-        w.last = { price, market, checkedAt: now, offers: fresh.offers.slice(0, 5) };
-        if (fresh.imageUrl && !w.imageUrl) w.imageUrl = fresh.imageUrl;
-      } catch (e) { w.lastError = e.message; errors.push(`${w.title}: ${e.message}`); }
-      if (!db.config.demo) await sleep(1500); // siteyi yormamak için
+    if (!db.config.demo) {
+      try { await nearestDepots(); } catch (e) { res.errors.push(e.message); return res; }
     }
+    const queue = db.watch.slice();
+    let done = 0;
+    const worker = async () => {
+      for (let w; (w = queue.shift()); ) {
+        try { await checkOne(w, res); }
+        catch (e) { w.lastError = e.message; res.errors.push(`${w.title}: ${e.message}`); }
+        done++; save(); // her üründen sonra kaydet: uygulama arka plana geçse de ilerleme kaybolmaz
+        if (onProgress) onProgress(done, res.total);
+        if (!db.config.demo) await sleep(300); // siteyi yormamak için
+      }
+    };
+    await Promise.all(Array.from({ length: db.config.demo ? 1 : 3 }, worker));
     db.feed = db.feed.slice(0, 200);
     db.lastRun = new Date().toISOString();
     save();
   } finally { checking = false; }
-  return errors;
+  return res;
+}
+function summarize(r) {
+  if (r.skipped) return { text: 'Kontrol zaten sürüyor, bitince sonuç burada görünür.', err: false };
+  if (!r.total) return { text: 'Takip listen boş.', err: false };
+  const parts = [`${r.checked}/${r.total} ürün kontrol edildi`, r.changed ? `${r.changed} fiyat değişti` : 'fiyat değişmedi'];
+  if (r.missing) parts.push(`${r.missing} ürün bulunamadı`);
+  parts.push(new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
+  let text = parts.join(' · ');
+  if (r.errors.length) text += ' — ' + r.errors.join(' | ');
+  return { text, err: r.errors.length > 0 || r.checked === 0 };
 }
 const isDue = () => db.watch.length && (!db.lastRun || Date.now() - Date.parse(db.lastRun) >= db.config.intervalHours * 3600e3);
 async function autoCheck() {
   if (!isDue()) return;
   setMsg($('#watch-msg'), 'Fiyatlar yenileniyor…');
-  const errors = await checkAll();
-  setMsg($('#watch-msg'), errors.join(' | '), !!errors.length);
+  const r = await checkAll((d, t) => setMsg($('#watch-msg'), `Fiyatlar yenileniyor… ${d}/${t}`));
+  if (!r.skipped) { const s = summarize(r); setMsg($('#watch-msg'), s.text, s.err); }
   refreshViews();
 }
 
@@ -583,7 +615,7 @@ function cardHTML(w, cheapest) {
     delta = `<div class="delta ${d < 0 ? 'dn' : 'up'}">${d < 0 ? '▼' : '▲'} ${tl(Math.abs(d))} (%${pctFmt(Math.abs(pct))})</div>`;
   }
   const prev = w.lastError ? `<span class="errtxt">${esc(w.lastError)}</span>`
-    : !info ? '' : info.prev != null ? `Önceki <b>${tl(info.prev)}</b> · ${shortDate(info.since)}` : 'Fiyat değişmedi';
+    : !info ? '' : info.prev != null ? `Önceki <b>${tl(info.prev)}</b> · ${shortDate(info.since)}` : `Fiyat değişmedi${w.last?.checkedAt ? ' · ' + when(w.last.checkedAt) : ''}`;
   const hit = w.last && w.targetPrice && w.last.price <= w.targetPrice;
   const target = w.targetPrice ? `<div class="tgt${hit ? ' hit' : ''}">Hedef ${tl(w.targetPrice)}${hit ? ' ✓' : ''}</div>` : '';
   const others = (w.last?.offers || []).slice(1, 4).map((o) => `${esc(o.market)} ${tl(o.price)}`).join(' · ');
@@ -600,7 +632,7 @@ function cardHTML(w, cheapest) {
       </div>
       <div class="more">
         ${spark(w.history)}
-        <div class="facts">${range}<span>Takibe alındı: ${shortDate(w.addedAt) || '—'}</span></div>
+        <div class="facts">${range}<span>Son kontrol: ${w.last?.checkedAt ? when(w.last.checkedAt) : '—'}</span><span>Takibe alındı: ${shortDate(w.addedAt) || '—'}</span></div>
         ${others ? `<div class="facts"><span>Diğer marketler: ${others}</span></div>` : ''}
         ${w.lastError ? `<div class="facts errtxt">${esc(w.lastError)}</div>` : ''}
         <div class="acts"><button class="ghost" data-edit="${esc(w.id)}">Düzenle</button><button class="ghost danger" data-remove="${esc(w.id)}">Takibi bırak</button></div>
@@ -669,9 +701,9 @@ $('#add-group').addEventListener('click', async () => {
 $('#check-now').addEventListener('click', async (e) => {
   const btn = e.currentTarget;
   btn.disabled = true; setMsg($('#watch-msg'), 'Fiyatlar kontrol ediliyor…');
-  const errors = await checkAll();
-  setMsg($('#watch-msg'), errors.join(' | '), !!errors.length);
-  renderWatch(); btn.disabled = false;
+  const r = await checkAll((d, t) => setMsg($('#watch-msg'), `Fiyatlar kontrol ediliyor… ${d}/${t}`));
+  const s = summarize(r);
+  renderWatch(); setMsg($('#watch-msg'), s.text, s.err); btn.disabled = false;
 });
 
 // Değişimler
@@ -758,7 +790,7 @@ $('#diag').addEventListener('click', async () => {
   if (ok1) {
     await step('Ürün adıyla arama (/search)', async () => { const r = await realSearch({ keywords: 'süt' }); return `${r.length} ürün`; });
     const w = db.watch[0];
-    if (w) await step(`Takip listesinden kimlikle arama: ${w.title}`, async () => { const r = await realSearch({ identity: w.id, keywords: w.title }); return `${r.length} sonuç, ürün ${r.some((p) => p.id === w.id) ? 'bulundu' : 'bulunamadı'}`; });
+    if (w) await step(`Takipteki ürünü adıyla bulma: ${w.title}`, async () => { const h = await lookup(w); return h ? `bulundu, güncel fiyat ${tl(h.best.price)} (${h.best.market})` : 'bulunamadı (ürün bu şubelerde satılmıyor olabilir)'; });
   }
   log('\nBu sonucu bana yapıştırırsan sorunu buradan çözerim.');
   btn.disabled = false;
