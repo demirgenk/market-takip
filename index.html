@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#17324D" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0A1016" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Market Takip">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Market Takip</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='14'%20fill='%2317324D'/%3E%3Crect%20x='13'%20y='17'%20width='38'%20height='30'%20rx='6'%20fill='%23FFD84D'/%3E%3Ctext%20x='32'%20y='40'%20font-size='24'%20font-weight='700'%20text-anchor='middle'%20fill='%2317324D'%20font-family='Arial%2Csans-serif'%3E%E2%82%BA%3C/text%3E%3C/svg%3E">
+<style>
+:root{color-scheme:light dark;--bg:#EEF1F4;--card:#fff;--soft:#F6F8FA;--ink:#10202E;--muted:#5C6C7B;--line:#DCE2E8;--bar:#17324D;--bar-ink:#fff;--primary:#17324D;--on-primary:#fff;--down:#0A7B4F;--down-soft:#E2F3EA;--up:#C0392B;--up-soft:#FBE7E4;--tag:#FFD84D;--on-tag:#2B2200;--focus:#2F6FED}
+@media(prefers-color-scheme:dark){:root{--bg:#0D1319;--card:#141C24;--soft:#18222C;--ink:#E7EEF4;--muted:#8A9AA9;--line:#24303B;--bar:#0A1016;--bar-ink:#E7EEF4;--primary:#8DB6E3;--on-primary:#09131D;--down:#4CCB8A;--down-soft:#14301F;--up:#FF8173;--up-soft:#3A1D1A;--focus:#7FB0FF}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+html{touch-action:manipulation}
+body{overscroll-behavior-y:contain}
+body{font:14px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;min-height:100dvh;padding-bottom:calc(54px + env(safe-area-inset-bottom));-webkit-text-size-adjust:100%}
+[hidden]{display:none!important}
+.top{display:flex;align-items:center;gap:8px;height:calc(44px + env(safe-area-inset-top));padding:env(safe-area-inset-top) 12px 0;position:sticky;top:0;background:var(--bar);color:var(--bar-ink);z-index:5}
+.top h1{font-size:15px;margin:0;font-weight:700;letter-spacing:-.01em}
+.mark{display:grid;place-items:center;width:22px;height:22px;border-radius:5px;background:var(--tag);color:var(--on-tag);font-weight:800;font-size:14px}
+.badge{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:99px;background:var(--tag);color:var(--on-tag);margin-left:auto}
+main{padding:10px 10px 12px;max-width:640px;margin:0 auto}
+h2{font-size:13px;font-weight:700;margin:14px 0 2px}
+.view[hidden]{display:none}
+.muted{color:var(--muted)}.small{font-size:12px}
+.row{display:flex;gap:6px;align-items:center}.between{justify-content:space-between}.end{justify-content:flex-end}
+
+input,select{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 11px;min-height:40px}
+input:focus-visible,select:focus-visible{outline:2px solid var(--focus);outline-offset:-1px;border-color:transparent}
+input[type=checkbox]{width:16px;height:16px;min-height:0;accent-color:var(--primary)}
+button{font:inherit;font-size:14px;font-weight:600;border:1px solid transparent;border-radius:8px;padding:8px 14px;min-height:36px;background:var(--primary);color:var(--on-primary);cursor:pointer;transition:background-color .12s,opacity .12s}
+button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+button.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+button.ghost:hover{background:var(--soft)}
+button.sm{min-height:30px;padding:4px 10px;font-size:13px}
+button.danger{color:var(--up)}
+button:disabled{opacity:.5;cursor:default}
+
+.searchbar{display:flex;gap:6px;margin:0 0 6px}.searchbar input{flex:1}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 2px 8px}
+.msg{min-height:16px;font-size:12px;color:var(--muted);margin:2px 2px 8px}.msg:empty{display:none}.msg.err{color:var(--up)}
+
+.sheet{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.sheet:empty{display:none}
+#watch-list{display:grid;gap:10px}
+.card{padding:9px 12px;border-top:1px solid var(--line)}
+.card:first-child,.ghead+.card,.gcheap+.card{border-top:0}
+.rw{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;align-items:center}
+.rw.feed{grid-template-columns:26px minmax(0,1fr) auto}
+.thumb{width:40px;height:40px;border-radius:8px;background:var(--soft);border:1px solid var(--line);object-fit:contain;display:grid;place-items:center;font-weight:700;font-size:15px;color:var(--muted)}
+.mid{min-width:0}
+.title{font-weight:600;font-size:14px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.meta,.prev{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{margin-top:2px}.prev{margin-top:1px}
+.prev b{color:var(--ink);font-weight:600}
+.errtxt{color:var(--up)}
+.side{text-align:right;display:grid;justify-items:end;gap:1px;min-width:72px}
+.side button{margin-top:4px}
+.pr{font-size:19px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1;white-space:nowrap}
+.pr i{font-style:normal;font-size:12px;font-weight:600;margin-right:1px;vertical-align:.35em}
+.pr sup{font-size:11px;font-weight:700;vertical-align:.5em;line-height:0;margin-left:1px}
+.delta{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.delta.dn{color:var(--down)}.delta.up{color:var(--up)}
+.tag{display:inline-block;background:var(--tag);color:var(--on-tag);font-size:10.5px;font-weight:700;padding:1px 5px;border-radius:3px;margin-right:5px;vertical-align:1px}
+
+.card[data-row]{cursor:pointer}
+.card[data-row]:active{background:var(--soft)}
+.more{display:none;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);cursor:default}
+.card.open .more{display:block}
+.spark{display:block;width:100%;height:34px;color:var(--primary)}
+.facts{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:12px;color:var(--muted);margin-top:6px}
+.facts b{color:var(--ink);font-weight:600}
+.acts{display:flex;gap:6px;margin-top:8px}
+.acts button{min-height:32px;padding:4px 12px;font-size:13px}
+
+.ghead{display:flex;align-items:center;gap:4px;padding:5px 6px 5px 12px;background:var(--soft);border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
+.ghead h3{margin:0;font-size:13px;font-weight:700;flex:1;min-width:0;display:flex;align-items:center;gap:6px}
+.gname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gsub{font-size:12px;font-weight:500;color:var(--muted);white-space:nowrap}
+.chev{width:14px;height:14px;flex:none;transition:transform .12s}
+.group.collapsed .chev{transform:rotate(-90deg)}
+.group.collapsed .ghead,.group.collapsed .gcheap{border-bottom:0}
+.gbtn{width:30px;min-height:30px;padding:0;display:grid;place-items:center;background:transparent;color:var(--muted);border:0}
+.gbtn svg{width:15px;height:15px}
+.gcheap{font-size:12px;color:var(--muted);padding:5px 12px;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tgt{font-size:11px;color:var(--muted);white-space:nowrap}.tgt.hit{color:var(--down);font-weight:700}
+.sm.add{background:transparent;color:var(--primary);border-color:var(--primary)}
+.gcheap b{color:var(--ink)}
+.gempty{padding:10px 12px;font-size:12px;color:var(--muted)}
+
+.fi{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--soft);color:var(--muted)}
+.fi.dn{background:var(--down-soft);color:var(--down)}.fi.up{background:var(--up-soft);color:var(--up)}.fi.tg{background:var(--tag);color:var(--on-tag)}
+.fi svg{width:14px;height:14px}
+.empty{margin:0;padding:22px 12px;text-align:center;color:var(--muted);font-size:13px}
+
+.pager{display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin:12px 0 2px}
+.pager button{min-width:36px;min-height:34px;padding:4px 8px;font-size:13px}
+
+.form{display:grid;gap:8px}.form p{margin:0}
+.form label{display:grid;gap:3px;font-size:12px;color:var(--muted);font-weight:600}
+.form label.inline{display:flex;gap:8px;align-items:center;font-weight:500}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:4px 12px 12px}
+.panel h2{margin:10px 0 0;padding-top:12px;border-top:1px solid var(--line)}
+.panel h2:first-child{border-top:0;margin-top:0}
+
+.tabs{position:fixed;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(4,1fr);background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:10}
+.tabs button{background:transparent;color:var(--muted);border:0;border-radius:0;padding:6px 2px 5px;min-height:50px;font-size:10.5px;font-weight:600;display:grid;justify-items:center;align-content:center;gap:2px;position:relative}
+.tabs svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tabs button.active{color:var(--primary)}
+.tabs button.active::before{content:"";position:absolute;top:0;left:30%;right:30%;height:2px;background:var(--primary)}
+.count{position:absolute;top:3px;left:calc(50% + 6px);font-style:normal;font-size:10px;font-weight:700;min-width:16px;line-height:16px;text-align:center;background:var(--tag);color:var(--on-tag);border-radius:99px;padding:0 4px}
+
+dialog{border:1px solid var(--line);border-radius:12px;padding:14px;width:min(92vw,360px);background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(8,14,20,.5)}
+dialog h2{margin:0 0 2px;font-size:14px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top"><span class="mark" aria-hidden="true">₺</span><h1>Market Takip</h1><span id="demo" class="badge" hidden>Demo verisi</span></header>
+
+<main>
+  <section id="view-search" class="view">
+    <form id="search-form" class="searchbar">
+      <input id="q" type="search" placeholder="Ürün ara (ör. süt, zeytinyağı)" aria-label="Ürün ara" autocomplete="off" enterkeyhint="search">
+      <button type="submit">Ara</button>
+    </form>
+    <div id="search-msg" class="msg"></div>
+    <div id="results" class="sheet"></div>
+    <div id="pager" class="pager"></div>
+  </section>
+
+  <section id="view-watch" class="view" hidden>
+    <div class="bar"><div id="last-run" class="muted small"></div><div class="row"><button id="add-group" class="ghost sm">+ Grup</button><button id="check-now" class="ghost sm">Kontrol et</button></div></div>
+    <div id="watch-msg" class="msg"></div>
+    <div id="watch-list"></div>
+  </section>
+
+  <section id="view-feed" class="view" hidden><div id="feed-list" class="sheet"></div></section>
+
+  <section id="view-settings" class="view" hidden>
+    <form id="settings-form" class="panel form">
+      <h2>Konum</h2>
+      <p class="muted small">Fiyatlar şubeye göre değişir. Konumunu gir, yakınındaki şubelerin fiyatları takip edilir.</p>
+      <div class="grid2">
+        <label>Enlem<input name="lat" inputmode="decimal" placeholder="41.0082"></label>
+        <label>Boylam<input name="lon" inputmode="decimal" placeholder="28.9784"></label>
+      </div>
+      <button type="button" id="geo" class="ghost">Konumumu kullan</button>
+      <label>Veya adresten bul (mahalle, ilçe, şehir)
+        <span class="row"><input id="addr" placeholder="ör. Kadıköy Caferağa, İstanbul" autocomplete="off"><button type="button" id="geocode" class="ghost">Bul</button></span>
+      </label>
+      <label>Arama mesafesi (km)<input name="distance" type="number" min="1" max="20"></label>
+
+      <h2>Kontrol</h2>
+      <p class="muted small">Uygulama kapalıyken kontrol yapılamaz. Açtığında, son kontrol bu süreden eskiyse fiyatlar kendiliğinden yenilenir.</p>
+      <div class="grid2">
+        <label>Kaç saatte bir<input name="intervalHours" type="number" min="1" max="48"></label>
+        <label>Bildirim eşiği (%)<input name="minDropPercent" type="number" min="1" max="90"></label>
+      </div>
+      <p class="muted small">Her fiyat değişimi (düşüş de artış da) Değişimler sekmesine yazılır. Telefon bildirimi yalnızca bu eşiği geçen değişimlerde gelir. Her küçük değişimde bildirim istersen eşiği 1 yap.</p>
+      <label class="inline"><input type="checkbox" name="notifyRise"> Fiyat artışında da bildirim gönder</label>
+
+      <h2>Bildirim (isteğe bağlı)</h2>
+      <p class="muted small">Ücretsiz <b>ntfy</b> uygulamasını kur ve burada yazdığın konu adına abone ol. Tahmin edilmesi zor bir ad seç.</p>
+      <label>ntfy konu adı<input name="ntfyTopic" placeholder="market-takip-xyz123" autocapitalize="off"></label>
+
+      <h2>Gelişmiş</h2>
+      <label>Proxy adresi (site doğrudan erişime izin vermezse)<input name="proxy" placeholder="https://benim-proxy.example/?url=" autocapitalize="off"></label>
+      <label class="inline"><input type="checkbox" name="demo"> Demo modu (sahte veriyle dene)</label>
+      <button type="button" id="diag" class="ghost">Bağlantıyı test et</button>
+      <pre id="diag-out" class="small muted" style="white-space:pre-wrap;margin:0"></pre>
+
+      <button type="submit">Kaydet</button>
+      <div id="settings-msg" class="msg"></div>
+    </form>
+
+    <div class="panel form" style="margin-top:10px">
+      <h2>Telefona yükle</h2>
+      <p id="install-text" class="muted small"></p>
+      <button type="button" id="install-btn" class="ghost" hidden>Ana ekrana ekle</button>
+    </div>
+
+    <div class="panel form" style="margin-top:10px">
+      <h2 style="margin-top:0">Veriler (JSON)</h2>
+      <p class="muted small">Takip listen, fiyat geçmişin ve ayarların bu cihazdaki tarayıcıda saklanır. Yedeklemek veya başka cihaza taşımak için JSON dosyası olarak indirip yükleyebilirsin.</p>
+      <div class="row"><button type="button" id="export" class="ghost">JSON indir</button><button type="button" id="import" class="ghost">JSON yükle</button></div>
+      <input id="import-file" type="file" accept="application/json,.json" hidden>
+      <div id="data-msg" class="msg"></div>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs" aria-label="Bölümler">
+  <button data-view="search" class="active"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Ara</button>
+  <button data-view="watch"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Takip<i id="watch-count" class="count" hidden></i></button>
+  <button data-view="feed"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>Değişimler</button>
+  <button data-view="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>Ayarlar</button>
+</nav>
+
+<dialog id="target-dialog">
+  <form method="dialog" class="form">
+    <h2 id="target-title">Ürün</h2>
+    <label>Grup<select id="group-select"></select></label>
+    <label hidden>Yeni grup adı<input id="group-new" placeholder="ör. 30'lu M boy yumurta" autocomplete="off"></label>
+    <label>Hedef fiyat (₺), isteğe bağlı<input id="target-input" inputmode="decimal" placeholder="örn. 49,90"></label>
+    <p class="muted small">Fiyat bu değerin altına düşünce ayrıca haber verilir. Boş bırakırsan da her fiyat değişimi kaydedilir.</p>
+    <div class="row end"><button type="button" class="ghost" data-close>Vazgeç</button><button value="ok">Tamam</button></div>
+  </form>
+</dialog>
+<dialog id="name-dialog">
+  <form method="dialog" class="form">
+    <h2 id="name-title">Grup adı</h2>
+    <label>Ad<input id="name-input" placeholder="ör. 5 lt ayçiçek yağı" autocomplete="off"></label>
+    <div class="row end"><button type="button" class="ghost" data-close>Vazgeç</button><button value="ok">Tamam</button></div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const tl = (n) => Number(n).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
+const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const round2 = (n) => Math.round(n * 100) / 100;
+const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
+
+// ---------- Veri: localStorage içinde tek JSON ----------
+const KEY = 'market-takip-v1';
+const DEFAULT = {
+  config: { lat: null, lon: null, distance: 3, ntfyTopic: '', intervalHours: 6, minDropPercent: 5, notifyRise: true, lastGroup: null, demo: false, proxy: '' },
+  watch: [], groups: [], feed: [], lastRun: null,
+};
+const merge = (j) => {
+  const m = { ...JSON.parse(JSON.stringify(DEFAULT)), ...(j || {}), config: { ...DEFAULT.config, ...(j && j.config) } };
+  for (const k of ['watch', 'groups', 'feed']) if (!Array.isArray(m[k])) m[k] = [];
+  return m;
+};
+let db;
+try { db = merge(JSON.parse(localStorage.getItem(KEY))); } catch { db = merge(null); }
+let saveWarned = false;
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(db)); }
+  catch { if (!saveWarned) { saveWarned = true; alert('Veriler tarayıcıya kaydedilemedi. Özel gezinme kapalı olmalı; yine de Ayarlar > JSON indir ile yedek alabilirsin.'); } }
+}
+
+// ---------- Kaynak: marketfiyati API ----------
+const API = 'https://api.marketfiyati.org.tr/api/v2';
+const PAGE_SIZE = 25; // sitede de sayfa başına 25 ürün var
+async function apiPost(path, body) {
+  const target = API + path;
+  const url = db.config.proxy ? db.config.proxy + encodeURIComponent(target) : target;
+  const send = () => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) });
+  let res;
+  try {
+    try { res = await send(); }
+    catch { await sleep(2000); res = await send(); } // geçici ağ hatası olabilir, bir kez daha dene
+  } catch {
+    const e = new Error(`marketfiyati.org.tr'ye bağlanılamadı [${path}]. İnternet yoksa, site isteği reddetmişse veya tarayıcı doğrudan erişimi engelliyorsa (CORS) bu hata çıkar. Ayarlar > Gelişmiş > "Bağlantıyı test et" ile hangi adımda takıldığına bakabilirsin.`);
+    e.network = true; throw e;
+  }
+  if (!res.ok) throw new Error(`Kaynak ${res.status} döndürdü [${path}]`);
+  return res.json();
+}
+const depotCache = new Map();
+async function nearestDepots() {
+  const { lat, lon, distance } = db.config;
+  if (lat == null || lon == null) throw new Error('Önce Ayarlar bölümünden konumunu gir.');
+  const key = `${lat},${lon},${distance}`;
+  const hit = depotCache.get(key);
+  if (hit && Date.now() - hit.at < 24 * 3600e3) return hit.ids;
+  // Boş depots verilirse kaynak konumu yok sayıp İstanbul fiyatlarını döndürüyor; önce yakın şubeleri alıyoruz.
+  const data = await apiPost('/nearest', { latitude: lat, longitude: lon, distance });
+  const list = Array.isArray(data) ? data : data.content || data.data || [];
+  const ids = list.map((d) => d.id ?? d.depotId).filter(Boolean).map(String);
+  if (!ids.length) throw new Error('Bu konumun çevresinde şube bulunamadı. Mesafeyi artırmayı dene.');
+  depotCache.set(key, { ids, at: Date.now() });
+  return ids;
+}
+function normalize(item) {
+  const offers = (item.productDepotInfoList || [])
+    .map((d) => ({ depotId: d.depotId, market: d.marketAdi || d.depotName || '?', price: Number(d.price), unitPrice: d.unitPrice, indexTime: d.indexTime }))
+    .filter((o) => Number.isFinite(o.price)).sort((a, b) => a.price - b.price);
+  return { id: String(item.id), title: item.title, brand: item.brand || '', imageUrl: item.imageUrl || '', offers, best: offers[0] || null };
+}
+async function realSearch(body) {
+  const depots = await nearestDepots();
+  const { lat, lon, distance } = db.config;
+  const data = await apiPost('/search', { pages: 0, size: PAGE_SIZE, latitude: lat, longitude: lon, distance, depots, ...body });
+  const out = (Array.isArray(data) ? data : data.content || data.data || []).map(normalize).filter((p) => p.best);
+  // Toplam ürün sayısı yanıtta varsa sayfa numaralarını ona göre çizeriz (alan adı kaynaktan kaynağa değişebilir)
+  const total = Number(data.numberOfFound ?? data.totalElements ?? data.totalCount ?? data.total);
+  out.total = Number.isFinite(total) && total > 0 ? total : null;
+  return out;
+}
+
+// Demo kaynağı
+let mockTick = 0;
+const MOCK_MARKETS = ['A101', 'BİM', 'ŞOK', 'Migros', 'CarrefourSA'];
+function hash(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+function mockProduct(id, title, brand) {
+  const base = 40 + (hash(id) % 160), seed = (hash(id) % 100) / 10;
+  const offers = MOCK_MARKETS.map((m, i) => ({
+    depotId: `${m}-${i}`, market: m, unitPrice: '',
+    price: round2(base * (1 + 0.03 * ((hash(id + m) % 5) - 2)) * (1 + 0.12 * Math.sin(mockTick * 1.3 + seed + i))),
+  })).sort((a, b) => a.price - b.price);
+  return { id, title, brand, imageUrl: '', offers, best: offers[0] };
+}
+async function mockSearch(body) {
+  if (body.identity) { const w = db.watch.find((x) => x.id === body.identity); return w ? [mockProduct(w.id, w.title, w.brand)] : []; }
+  const q = (body.keywords || '').trim(), B = ['Sütaş', 'Pınar', 'Torku', 'Ülker'];
+  const all = Array.from({ length: 60 }, (_, n) => mockProduct('mock-' + hash(q + n), `${q} ${B[n % 4]} ${n + 1}`, B[n % 4]));
+  const out = all.slice((body.pages || 0) * PAGE_SIZE, ((body.pages || 0) + 1) * PAGE_SIZE);
+  out.total = all.length;
+  return out;
+}
+const source = (body) => (db.config.demo ? mockSearch(body) : realSearch(body));
+
+const searchCache = new Map();
+async function search(body) {
+  const key = JSON.stringify(body) + JSON.stringify(db.config);
+  const hit = searchCache.get(key);
+  if (hit && Date.now() - hit.at < 10 * 60e3) return hit.data;
+  const data = await source(body);
+  searchCache.set(key, { data, at: Date.now() });
+  if (searchCache.size > 100) searchCache.delete(searchCache.keys().next().value);
+  return data;
+}
+async function lookup(w) {
+  // Önce ürün kimliğiyle ara; olmazsa (hata veya boş sonuç) ürün adıyla ara, arama ekranında yaptığımız gibi.
+  let hit = null;
+  try { hit = (await source({ identity: w.id, keywords: w.title })).find((p) => p.id === w.id); } catch { /* adla aramayı dene */ }
+  for (let page = 0; !hit && page < 3; page++) {
+    const r = await source({ keywords: w.title, pages: page });
+    hit = r.find((p) => p.id === w.id);
+    if (!r.length) break;
+  }
+  return hit || null;
+}
+
+async function notify(title, message) {
+  const topic = db.config.ntfyTopic?.trim();
+  if (!topic) return;
+  try {
+    await fetch('https://ntfy.sh/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topic, title, message, tags: ['shopping_cart'] }) });
+  } catch { /* bildirim gitmediyse sessizce geç */ }
+}
+
+// ---------- Fiyat kontrolü ----------
+let checking = false;
+async function checkAll() {
+  if (checking) return [];
+  checking = true;
+  const errors = [];
+  try {
+    mockTick++;
+    for (const w of db.watch) {
+      try {
+        const fresh = await lookup(w);
+        if (!fresh) { w.lastError = 'Ürün şu an bu konumdaki şubelerde bulunamadı'; continue; }
+        w.lastError = null;
+        const { price, market } = fresh.best;
+        const prev = w.last?.price, now = new Date().toISOString();
+        const lastHist = w.history[w.history.length - 1];
+        if (!lastHist || lastHist.price !== price || Date.now() - Date.parse(lastHist.t) > 12 * 3600e3) {
+          w.history.push({ t: now, price, market });
+          if (w.history.length > 400) w.history.shift();
+        }
+        const fmt = (n) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺';
+        if (prev != null && Math.abs(price - prev) >= 0.005) {
+          const pct = ((price - prev) / prev) * 100, down = pct < 0;
+          db.feed.unshift({ t: now, id: w.id, title: w.title, kind: down ? 'down' : 'up', from: prev, to: price, market });
+          if (Math.abs(pct) >= db.config.minDropPercent && (down || db.config.notifyRise !== false))
+            notify(down ? 'Fiyat düştü' : 'Fiyat arttı', `${w.title}: ${fmt(prev)} → ${fmt(price)} (%${Math.abs(pct).toFixed(1).replace('.', ',')} ${down ? 'düştü' : 'arttı'}) · ${market}`);
+        }
+        if (w.targetPrice && price <= w.targetPrice && !(prev != null && prev <= w.targetPrice)) {
+          db.feed.unshift({ t: now, id: w.id, title: w.title, kind: 'target', from: prev ?? null, to: price, market });
+          notify('Hedef fiyata ulaştı', `${w.title}: ${fmt(price)} · ${market} (hedef ${fmt(w.targetPrice)})`);
+        }
+        w.last = { price, market, checkedAt: now, offers: fresh.offers.slice(0, 5) };
+        if (fresh.imageUrl && !w.imageUrl) w.imageUrl = fresh.imageUrl;
+      } catch (e) { w.lastError = e.message; errors.push(`${w.title}: ${e.message}`); }
+      if (!db.config.demo) await sleep(1500); // siteyi yormamak için
+    }
+    db.feed = db.feed.slice(0, 200);
+    db.lastRun = new Date().toISOString();
+    save();
+  } finally { checking = false; }
+  return errors;
+}
+const isDue = () => db.watch.length && (!db.lastRun || Date.now() - Date.parse(db.lastRun) >= db.config.intervalHours * 3600e3);
+async function autoCheck() {
+  if (!isDue()) return;
+  setMsg($('#watch-msg'), 'Fiyatlar yenileniyor…');
+  const errors = await checkAll();
+  setMsg($('#watch-msg'), errors.join(' | '), !!errors.length);
+  refreshViews();
+}
+
+// ---------- Arayüz ----------
+const tabs = document.querySelectorAll('.tabs button');
+function show(view) {
+  tabs.forEach((b) => b.classList.toggle('active', b.dataset.view === view));
+  document.querySelectorAll('.view').forEach((v) => (v.hidden = v.id !== 'view-' + view));
+  if (view === 'watch') renderWatch();
+  if (view === 'feed') renderFeed();
+  if (view === 'settings') loadSettings();
+  try { history.replaceState(null, '', '#' + view); } catch { /* file:// */ }
+}
+tabs.forEach((b) => b.addEventListener('click', () => show(b.dataset.view)));
+function currentView() { return document.querySelector('.view:not([hidden])').id.replace('view-', ''); }
+function refreshViews() { refreshCount(); const v = currentView(); if (v === 'watch') renderWatch(); if (v === 'feed') renderFeed(); }
+function refreshCount() { const el = $('#watch-count'); el.textContent = db.watch.length; el.hidden = !db.watch.length; }
+function updateDemoBadge() { $('#demo').hidden = !db.config.demo; }
+
+const svg = (d, cls = '') => `<svg${cls ? ` class="${cls}"` : ''} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICON = {
+  chev: svg('<path d="m6 9 6 6 6-6"/>', 'chev'),
+  edit: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
+  trash: svg('<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/>'),
+  down: svg('<path d="M12 5v14"/><path d="m6 13 6 6 6-6"/>'),
+  up: svg('<path d="M12 19V5"/><path d="m6 11 6-6 6 6"/>'),
+  target: svg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>'),
+};
+// Raf etiketi gibi fiyat: lira büyük, kuruş yukarıda küçük
+function priceHTML(n) {
+  const [i, f] = Number(n).toFixed(2).split('.');
+  return `<span class="pr"><i>₺</i>${Number(i).toLocaleString('tr-TR')}<sup>,${f}</sup></span>`;
+}
+function thumb(url, title) {
+  const ini = esc((title || '?').trim().charAt(0).toLocaleUpperCase('tr-TR'));
+  return url
+    ? `<img class="thumb" src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-i="${ini}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'thumb',textContent:this.dataset.i}))">`
+    : `<div class="thumb">${ini}</div>`;
+}
+function fillGroupSelect(sel, current) {
+  sel.innerHTML = '<option value="">Grupsuz</option>' + db.groups.map((g) => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('') + '<option value="__new">➕ Yeni grup…</option>';
+  sel.value = db.groups.some((g) => g.id === current) ? current : '';
+}
+function newGroup(name) {
+  const g = { id: 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name.trim(), collapsed: false };
+  db.groups.push(g);
+  return g;
+}
+// Ürün için grup ve hedef fiyat sorar. İptalde undefined döner.
+function askItem(title, { target = null, groupId = null } = {}) {
+  return new Promise((resolve) => {
+    const dlg = $('#target-dialog'), sel = $('#group-select'), nameIn = $('#group-new');
+    $('#target-title').textContent = title;
+    $('#target-input').value = target ?? '';
+    fillGroupSelect(sel, groupId);
+    nameIn.value = ''; nameIn.parentElement.hidden = true;
+    sel.onchange = () => { nameIn.parentElement.hidden = sel.value !== '__new'; if (sel.value === '__new') nameIn.focus(); };
+    dlg.returnValue = '';
+    dlg.addEventListener('close', () => {
+      if (dlg.returnValue !== 'ok') return resolve(undefined);
+      const v = parseFloat($('#target-input').value.replace(',', '.'));
+      let gid = sel.value || null;
+      if (gid === '__new') gid = nameIn.value.trim() ? newGroup(nameIn.value).id : null;
+      resolve({ target: Number.isFinite(v) && v > 0 ? v : null, groupId: gid });
+    }, { once: true });
+    dlg.showModal();
+  });
+}
+function askName(title, current = '') {
+  return new Promise((resolve) => {
+    const dlg = $('#name-dialog'), inp = $('#name-input');
+    $('#name-title').textContent = title; inp.value = current; dlg.returnValue = '';
+    dlg.addEventListener('close', () => resolve(dlg.returnValue === 'ok' && inp.value.trim() ? inp.value.trim() : undefined), { once: true });
+    dlg.showModal();
+  });
+}
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-close]'); if (b) b.closest('dialog').close('cancel'); });
+
+// Arama
+let lastResults = [], lastQuery = '', lastPage = 0;
+async function runSearch(q, page) {
+  const msg = $('#search-msg');
+  setMsg(msg, 'Aranıyor…');
+  $('#results').innerHTML = ''; $('#pager').innerHTML = '';
+  try {
+    const res = await search({ keywords: q, pages: page });
+    lastResults = res; lastQuery = q; lastPage = page;
+    const pages = res.total ? Math.ceil(res.total / PAGE_SIZE) : null;
+    setMsg(msg, res.length
+      ? `Sayfa ${page + 1}${pages ? ' / ' + pages : ''} · ${res.length} ürün${res.total ? ` (toplam ${res.total})` : ''}`
+      : (page > 0 ? 'Bu sayfada sonuç yok' : 'Sonuç bulunamadı'));
+    renderResults(); renderPager(res.total, res.length);
+    if (page > 0) window.scrollTo({ top: 0 });
+  } catch (err) { setMsg(msg, err.message, true); }
+}
+function renderPager(total, count) {
+  const pages = total ? Math.ceil(total / PAGE_SIZE) : null, cur = lastPage;
+  const hasNext = pages ? cur + 1 < pages : count > 0;
+  if (cur === 0 && !hasNext) { $('#pager').innerHTML = ''; return; }
+  let nums = [cur];
+  if (pages) { const from = Math.max(0, Math.min(cur - 2, pages - 5)); nums = Array.from({ length: Math.min(5, pages) }, (_, k) => from + k); }
+  $('#pager').innerHTML =
+    `<button class="ghost" data-page="${cur - 1}" ${cur === 0 ? 'disabled' : ''} aria-label="Önceki sayfa">‹</button>` +
+    nums.map((i) => `<button class="${i === cur ? '' : 'ghost'}" data-page="${i}" ${i === cur ? 'aria-current="page"' : ''}>${i + 1}</button>`).join('') +
+    `<button class="ghost" data-page="${cur + 1}" ${hasNext ? '' : 'disabled'} aria-label="Sonraki sayfa">›</button>`;
+}
+$('#pager').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-page]');
+  if (b && !b.disabled) runSearch(lastQuery, Number(b.dataset.page));
+});
+$('#search-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const q = $('#q').value.trim();
+  if (q.length >= 2) runSearch(q, 0);
+});
+function renderResults() {
+  const watching = new Set(db.watch.map((w) => w.id));
+  $('#results').innerHTML = lastResults.map((p, i) => {
+    const others = p.offers.slice(1, 4).map((o) => `${esc(o.market)} ${tl(o.price)}`).join(' · ');
+    return `
+    <article class="card"><div class="rw">${thumb(p.imageUrl, p.title)}
+      <div class="mid">
+        <div class="title">${esc(p.title)}</div>
+        <div class="meta">${esc(p.best.market)}${p.brand ? ' · ' + esc(p.brand) : ''}</div>
+        ${others ? `<div class="prev">${others}</div>` : ''}
+      </div>
+      <div class="side">${priceHTML(p.best.price)}${watching.has(p.id) ? '<button class="ghost sm" disabled>Takipte</button>' : `<button class="sm add" data-add="${i}">Takibe al</button>`}</div>
+    </div></article>`;
+  }).join('');
+}
+$('#results').addEventListener('click', async (e) => {
+  const i = e.target.dataset.add;
+  if (i == null) return;
+  const p = lastResults[i];
+  const r = await askItem(p.title, { groupId: db.config.lastGroup });
+  if (r === undefined) return;
+  if (db.watch.some((w) => w.id === p.id)) return;
+  const now = new Date().toISOString();
+  db.watch.unshift({
+    id: p.id, title: p.title, brand: p.brand, imageUrl: p.imageUrl, targetPrice: r.target, groupId: r.groupId, addedAt: now,
+    last: { price: p.best.price, market: p.best.market, checkedAt: now, offers: p.offers.slice(0, 5) },
+    history: [{ t: now, price: p.best.price, market: p.best.market }], lastError: null,
+  });
+  db.config.lastGroup = r.groupId;
+  save(); renderResults(); refreshCount();
+});
+
+// Takip listesi
+const openRows = new Set();
+const shortDate = (iso) => iso ? new Date(iso).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }) : '';
+const pctFmt = (n) => n.toFixed(1).replace('.', ',');
+function spark(history) {
+  const pts = history.slice(-30).map((h) => h.price);
+  if (pts.length < 2) return '';
+  const min = Math.min(...pts), max = Math.max(...pts), span = max - min || 1;
+  const d = pts.map((v, i) => `${(i / (pts.length - 1)) * 300},${32 - ((v - min) / span) * 28}`).join(' ');
+  return `<svg class="spark" viewBox="0 0 300 36" preserveAspectRatio="none" aria-hidden="true"><polyline points="${d}" fill="none" stroke="currentColor" stroke-width="1.75" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+// Güncel fiyat, bir önceki farklı fiyat ve değişimin görüldüğü an
+function priceInfo(w) {
+  const cur = w.last?.price, h = w.history || [];
+  if (cur == null) return null;
+  let i = h.length - 1;
+  while (i >= 0 && Math.abs(h[i].price - cur) < 0.005) i--;
+  const prices = h.map((x) => x.price).concat(cur);
+  return {
+    cur, prev: i >= 0 ? h[i].price : null,
+    since: i >= 0 ? (h[i + 1]?.t || w.last.checkedAt) : null,
+    min: Math.min(...prices), max: Math.max(...prices),
+  };
+}
+function cardHTML(w, cheapest) {
+  const info = priceInfo(w);
+  let delta = '';
+  if (info && info.prev != null) {
+    const d = info.cur - info.prev, pct = (d / info.prev) * 100;
+    delta = `<div class="delta ${d < 0 ? 'dn' : 'up'}">${d < 0 ? '▼' : '▲'} ${tl(Math.abs(d))} (%${pctFmt(Math.abs(pct))})</div>`;
+  }
+  const prev = w.lastError ? `<span class="errtxt">${esc(w.lastError)}</span>`
+    : !info ? '' : info.prev != null ? `Önceki <b>${tl(info.prev)}</b> · ${shortDate(info.since)}` : 'Fiyat değişmedi';
+  const hit = w.last && w.targetPrice && w.last.price <= w.targetPrice;
+  const target = w.targetPrice ? `<div class="tgt${hit ? ' hit' : ''}">Hedef ${tl(w.targetPrice)}${hit ? ' ✓' : ''}</div>` : '';
+  const others = (w.last?.offers || []).slice(1, 4).map((o) => `${esc(o.market)} ${tl(o.price)}`).join(' · ');
+  const range = info && info.max > info.min ? `<span>En düşük <b>${tl(info.min)}</b></span><span>En yüksek <b>${tl(info.max)}</b></span>` : '';
+  return `
+    <article class="card${openRows.has(w.id) ? ' open' : ''}" data-row="${esc(w.id)}">
+      <div class="rw">${thumb(w.imageUrl, w.title)}
+        <div class="mid">
+          <div class="title">${esc(w.title)}</div>
+          <div class="meta">${cheapest ? '<span class="tag">En ucuz</span>' : ''}${esc(w.last?.market || '')}</div>
+          <div class="prev">${prev}</div>
+        </div>
+        <div class="side">${w.last ? priceHTML(w.last.price) : '—'}${delta}${target}</div>
+      </div>
+      <div class="more">
+        ${spark(w.history)}
+        <div class="facts">${range}<span>Takibe alındı: ${shortDate(w.addedAt) || '—'}</span></div>
+        ${others ? `<div class="facts"><span>Diğer marketler: ${others}</span></div>` : ''}
+        ${w.lastError ? `<div class="facts errtxt">${esc(w.lastError)}</div>` : ''}
+        <div class="acts"><button class="ghost" data-edit="${esc(w.id)}">Düzenle</button><button class="ghost danger" data-remove="${esc(w.id)}">Takibi bırak</button></div>
+      </div>
+    </article>`;
+}
+function groupHTML(g, items) {
+  const first = items[0]?.last ? items[0] : null;
+  const head = `<div class="ghead" data-gtoggle="${esc(g.id)}"><h3>${ICON.chev}<span class="gname">${esc(g.name)}</span><span class="gsub">${items.length} ürün</span></h3><button class="gbtn" data-gedit="${esc(g.id)}" aria-label="Grubu yeniden adlandır">${ICON.edit}</button><button class="gbtn" data-gdel="${esc(g.id)}" aria-label="Grubu sil">${ICON.trash}</button></div>`;
+  const sub = first && items.length > 1 ? `<div class="gcheap">En ucuz: <b>${tl(first.last.price)}</b> · ${esc(first.title)} · ${esc(first.last.market)}</div>` : '';
+  const body = g.collapsed ? '' : items.length
+    ? items.map((w, i) => cardHTML(w, items.length > 1 && i === 0)).join('')
+    : '<div class="gempty">Bu grupta ürün yok. Bir ürünün "Düzenle" düğmesinden bu gruba taşıyabilirsin.</div>';
+  return `<section class="group sheet${g.collapsed ? ' collapsed' : ''}">${head}${sub}${body}</section>`;
+}
+function renderWatch() {
+  refreshCount();
+  $('#last-run').textContent = 'Son kontrol: ' + when(db.lastRun);
+  if (!db.watch.length && !db.groups.length) setMsg($('#watch-msg'), 'Henüz takip ettiğin ürün yok. Ara sekmesinden ekleyebilirsin.');
+  const ids = new Set(db.groups.map((g) => g.id));
+  const price = (w) => w.last?.price ?? Infinity;
+  const loose = db.watch.filter((w) => !ids.has(w.groupId));
+  let html = db.groups.map((g) => groupHTML(g, db.watch.filter((w) => w.groupId === g.id).sort((a, b) => price(a) - price(b)))).join('');
+  if (loose.length) {
+    html += `<section class="group sheet">${db.groups.length ? `<div class="ghead" style="cursor:default"><h3><span class="gname">Grupsuz</span><span class="gsub">${loose.length} ürün</span></h3></div>` : ''}${loose.map((w) => cardHTML(w, false)).join('')}</section>`;
+  }
+  $('#watch-list').innerHTML = html;
+}
+$('#watch-list').addEventListener('click', async (e) => {
+  const t = e.target.closest('button, [data-gtoggle]');
+  if (!t) {
+    const row = e.target.closest('[data-row]');
+    if (row) { row.classList.toggle('open'); if (row.classList.contains('open')) openRows.add(row.dataset.row); else openRows.delete(row.dataset.row); }
+    return;
+  }
+  const d = t.dataset;
+  if (d.gedit) {
+    const g = db.groups.find((x) => x.id === d.gedit);
+    const name = await askName('Grubu yeniden adlandır', g.name);
+    if (name) { g.name = name; save(); renderWatch(); }
+  } else if (d.gdel) {
+    const g = db.groups.find((x) => x.id === d.gdel);
+    const n = db.watch.filter((w) => w.groupId === g.id).length;
+    if (!confirm(`"${g.name}" grubu silinsin mi? İçindeki ${n} ürün takipte kalır, sadece gruptan çıkar.`)) return;
+    db.watch.forEach((w) => { if (w.groupId === g.id) w.groupId = null; });
+    db.groups = db.groups.filter((x) => x.id !== g.id);
+    if (db.config.lastGroup === g.id) db.config.lastGroup = null;
+    save(); renderWatch();
+  } else if (d.gtoggle) {
+    const g = db.groups.find((x) => x.id === d.gtoggle);
+    if (g) { g.collapsed = !g.collapsed; save(); renderWatch(); }
+  } else if (d.edit) {
+    const w = db.watch.find((x) => x.id === d.edit);
+    const r = await askItem(w.title, { target: w.targetPrice, groupId: w.groupId });
+    if (r === undefined) return;
+    w.targetPrice = r.target; w.groupId = r.groupId; save(); renderWatch();
+  } else if (d.remove) {
+    if (!confirm('Bu ürünü takipten çıkaralım mı?')) return;
+    db.watch = db.watch.filter((x) => x.id !== d.remove); save(); renderWatch(); setMsg($('#watch-msg'), '');
+  }
+});
+$('#add-group').addEventListener('click', async () => {
+  const name = await askName('Yeni grup', '');
+  if (name) { newGroup(name); save(); renderWatch(); }
+});
+$('#check-now').addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  btn.disabled = true; setMsg($('#watch-msg'), 'Fiyatlar kontrol ediliyor…');
+  const errors = await checkAll();
+  setMsg($('#watch-msg'), errors.join(' | '), !!errors.length);
+  renderWatch(); btn.disabled = false;
+});
+
+// Değişimler
+function renderFeed() {
+  const label = { target: 'Hedef fiyata ulaştı', up: 'Fiyat arttı', down: 'Fiyat düştü', drop: 'Fiyat düştü' };
+  $('#feed-list').innerHTML = db.feed.length ? db.feed.map((f) => {
+    const k = f.kind === 'target' ? 'tg' : f.kind === 'up' ? 'up' : 'dn';
+    const pct = f.from ? ((f.to - f.from) / f.from) * 100 : null;
+    const delta = pct != null && f.kind !== 'target' ? `<div class="delta ${pct < 0 ? 'dn' : 'up'}">${pct < 0 ? '▼' : '▲'} %${pctFmt(Math.abs(pct))}</div>` : '';
+    return `<article class="card"><div class="rw feed">
+      <div class="fi ${k}">${k === 'tg' ? ICON.target : k === 'up' ? ICON.up : ICON.down}</div>
+      <div class="mid"><div class="title">${esc(f.title)}</div>
+        <div class="meta">${label[f.kind] || 'Değişti'} · ${when(f.t)}</div>
+        <div class="prev">${f.from != null ? `${tl(f.from)} → ` : ''}<b>${tl(f.to)}</b> · ${esc(f.market)}</div></div>
+      <div class="side">${priceHTML(f.to)}${delta}</div>
+    </div></article>`;
+  }).join('') : '<p class="empty">Henüz bir fiyat değişimi yakalanmadı. Takip listendeki ürünlerin fiyatı değiştiğinde burada görünür.</p>';
+}
+
+// Ayarlar
+const FIELDS = ['lat', 'lon', 'distance', 'intervalHours', 'minDropPercent', 'ntfyTopic', 'proxy'];
+function loadSettings() {
+  const f = $('#settings-form').elements;
+  for (const k of FIELDS) f[k].value = db.config[k] ?? '';
+  f.demo.checked = !!db.config.demo;
+  f.notifyRise.checked = db.config.notifyRise !== false;
+}
+$('#settings-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const f = e.currentTarget.elements, c = db.config;
+  const num = (v) => { v = String(v).trim().replace(',', '.'); return v === '' ? null : Number(v); };
+  c.lat = num(f.lat.value); c.lon = num(f.lon.value);
+  c.distance = Math.min(Math.max(num(f.distance.value) || 3, 1), 20);
+  c.intervalHours = Math.min(Math.max(num(f.intervalHours.value) || 6, 1), 48);
+  c.minDropPercent = Math.min(Math.max(num(f.minDropPercent.value) || 5, 1), 90);
+  c.ntfyTopic = f.ntfyTopic.value.trim(); c.proxy = f.proxy.value.trim(); c.demo = f.demo.checked; c.notifyRise = f.notifyRise.checked;
+  depotCache.clear(); searchCache.clear(); save(); updateDemoBadge();
+  setMsg($('#settings-msg'), 'Kaydedildi ✓');
+});
+$('#geo').addEventListener('click', () => {
+  const msg = $('#settings-msg');
+  if (!window.isSecureContext) return setMsg(msg, 'Tarayıcı konumu yalnızca https adreslerinde verir (bu sayfa yerel dosya veya http olarak açık). Aşağıdaki "adresten bul" alanını kullan ya da enlem/boylamı elle yaz.', true);
+  if (!navigator.geolocation) return setMsg(msg, 'Bu tarayıcı konumu desteklemiyor. "Adresten bul" alanını kullanabilirsin.', true);
+  setMsg(msg, 'Konum alınıyor…');
+  navigator.geolocation.getCurrentPosition(
+    (pos) => { const f = $('#settings-form').elements; f.lat.value = pos.coords.latitude.toFixed(5); f.lon.value = pos.coords.longitude.toFixed(5); setMsg(msg, 'Konum alındı, Kaydet\'e bas'); },
+    (err) => setMsg(msg, err.code === 1
+      ? 'Konum izni verilmedi. Tarayıcı veya telefon ayarlarından bu site için konum iznini aç, ya da "adresten bul" alanını kullan.'
+      : 'Konum alınamadı (telefonun konum servisi kapalı olabilir). "Adresten bul" alanını kullanabilirsin.', true),
+    { timeout: 10000, maximumAge: 600000 });
+});
+$('#geocode').addEventListener('click', async () => {
+  const msg = $('#settings-msg'), q = $('#addr').value.trim();
+  if (q.length < 3) return setMsg(msg, 'Mahalle, ilçe veya şehir adını yaz.', true);
+  setMsg(msg, 'Aranıyor…');
+  try {
+    const res = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=tr&accept-language=tr&q=' + encodeURIComponent(q));
+    if (!res.ok) throw new Error();
+    const hit = (await res.json())[0];
+    if (!hit) return setMsg(msg, 'Bu adres bulunamadı. Daha genel yaz (ör. ilçe ve şehir).', true);
+    const f = $('#settings-form').elements;
+    f.lat.value = Number(hit.lat).toFixed(5); f.lon.value = Number(hit.lon).toFixed(5);
+    setMsg(msg, `Bulundu: ${hit.display_name}. Doğruysa Kaydet'e bas.`);
+  } catch { setMsg(msg, 'Adres servisine ulaşılamadı. Enlem/boylamı elle yazabilirsin (Google Haritalar\'da yere uzun basınca görünür).', true); }
+});
+
+// Bağlantı testi: hangi adımda takıldığını gösterir
+$('#diag').addEventListener('click', async () => {
+  const out = $('#diag-out'), btn = $('#diag');
+  const { lat, lon, distance } = db.config;
+  btn.disabled = true;
+  const lines = [];
+  const log = (s) => { lines.push(s); out.textContent = lines.join('\n'); };
+  const step = async (name, fn) => {
+    const t = Date.now();
+    try { const r = await fn(); log(`✓ ${name} (${Date.now() - t} ms)${r ? ' — ' + r : ''}`); return true; }
+    catch (e) { log(`✗ ${name}: ${e.message}`); return false; }
+  };
+  log(`Sayfa: ${location.protocol}//${location.host || '(yerel dosya)'} · çevrimiçi: ${navigator.onLine ? 'evet' : 'hayır'} · proxy: ${db.config.proxy ? 'var' : 'yok'} · demo: ${db.config.demo ? 'evet' : 'hayır'}`);
+  if (db.config.demo) { log('Demo modu açık, gerçek bağlantı denenmedi.'); btn.disabled = false; return; }
+  if (lat == null || lon == null) { log('✗ Önce konumu kaydet.'); btn.disabled = false; return; }
+  let depots = [];
+  const ok1 = await step('Yakın şubeler (/nearest)', async () => { depotCache.clear(); depots = await nearestDepots(); return `${depots.length} şube`; });
+  if (ok1) {
+    await step('Ürün adıyla arama (/search)', async () => { const r = await realSearch({ keywords: 'süt' }); return `${r.length} ürün`; });
+    const w = db.watch[0];
+    if (w) await step(`Takip listesinden kimlikle arama: ${w.title}`, async () => { const r = await realSearch({ identity: w.id, keywords: w.title }); return `${r.length} sonuç, ürün ${r.some((p) => p.id === w.id) ? 'bulundu' : 'bulunamadı'}`; });
+  }
+  log('\nBu sonucu bana yapıştırırsan sorunu buradan çözerim.');
+  btn.disabled = false;
+});
+
+// JSON yedek / yükle
+$('#export').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'market-takip-yedek.json' });
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  setMsg($('#data-msg'), 'JSON dosyası indirildi ✓');
+});
+$('#import').addEventListener('click', () => $('#import-file').click());
+$('#import-file').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const j = JSON.parse(await file.text());
+    if (!j || !Array.isArray(j.watch)) throw new Error('Bu dosya Market Takip yedeği gibi görünmüyor');
+    if (!confirm(`Yedekteki ${j.watch.length} ürün, mevcut verilerin yerine geçsin mi?`)) return;
+    db = merge(j); depotCache.clear(); searchCache.clear(); save();
+    updateDemoBadge(); loadSettings(); refreshCount();
+    setMsg($('#data-msg'), `Yüklendi: ${db.watch.length} ürün ✓`);
+  } catch (err) { setMsg($('#data-msg'), err.message, true); }
+});
+
+// ---------- Uygulama olarak yükleme ----------
+let installEvt = null;
+const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+function updateInstall() {
+  const t = $('#install-text'), b = $('#install-btn');
+  if (isStandalone()) { t.textContent = 'Uygulama olarak çalışıyor.'; b.hidden = true; return; }
+  if (installEvt) { t.textContent = 'Tarayıcı çubukları olmadan, tam ekran açılır.'; b.hidden = false; return; }
+  b.hidden = true;
+  t.textContent = /iphone|ipad|ipod/i.test(navigator.userAgent)
+    ? 'Safari\'de Paylaş düğmesine dokun, sonra "Ana Ekrana Ekle"yi seç. Not: iPhone\'da yüklenen uygulamanın verileri tarayıcıdakinden ayrıdır; taşımak için JSON indir/yükle kullan.'
+    : 'Tarayıcı menüsünden (⋮) "Uygulamayı yükle" veya "Ana ekrana ekle"yi seç. Bu sayfa https üzerinden açılmış olmalı.';
+}
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; updateInstall(); });
+window.addEventListener('appinstalled', () => { installEvt = null; updateInstall(); });
+$('#install-btn').addEventListener('click', async () => {
+  if (!installEvt) return;
+  installEvt.prompt();
+  await installEvt.userChoice.catch(() => {});
+  installEvt = null; updateInstall();
+});
+updateInstall();
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); // verilerin tarayıcı tarafından silinmesini zorlaştırır
+
+// ---------- Başlangıç ----------
+updateDemoBadge(); refreshCount();
+const start = (location.hash || '').slice(1);
+if (!db.config.demo && (db.config.lat == null || db.config.lon == null)) { show('settings'); setMsg($('#settings-msg'), 'Başlamak için konumunu gir (veya demo modunu aç).'); }
+else show(['search', 'watch', 'feed', 'settings'].includes(start) ? start : (db.watch.length ? 'watch' : 'search'));
+autoCheck();
+setInterval(autoCheck, 30 * 60e3);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) autoCheck(); });
+})();
+</script>
+</body>
+</html>
