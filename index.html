@@ -207,6 +207,10 @@ dialog .row.end{gap:10px;margin-top:6px}
 dialog .row.end button{min-height:46px;font-size:15px}
 dialog .row.end .ghost{flex:1;background:var(--bg);border-color:transparent;color:var(--muted)}
 dialog .row.end button:not(.ghost){flex:2}
+.mid .meta{display:flex;flex-wrap:wrap;gap:3px 5px;align-items:center;white-space:normal;overflow:visible}
+.mid .meta .tag,.mid .meta .unit{margin-right:0}
+.gcheap{white-space:normal}
+.mk{display:inline-block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ink);background:rgba(128,128,128,.2);border-radius:6px;padding:1px 6px;vertical-align:1px}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -321,12 +325,13 @@ dialog .row.end button:not(.ghost){flex:2}
 'use strict';
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const mk = (m) => `<span class="mk">${esc(m)}</span>`;
 const tl = (n) => Number(n).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
 const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.7.0', APP_DATE = '10 Kas 2026';
+const APP_VERSION = '1.7.1', APP_DATE = '10 Kas 2026';
 // Grup renkleri (fiyat düşüş/artış renkleri olan yeşil ve kırmızıyla karışmasın diye onlar yok)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
@@ -666,12 +671,12 @@ $('#search-form').addEventListener('submit', (e) => {
 function renderResults() {
   const watching = new Set(db.watch.map((w) => w.id));
   $('#results').innerHTML = lastResults.map((p, i) => {
-    const others = p.offers.slice(1, 4).map((o) => `${esc(o.market)} ${tl(o.price)}`).join(' · ');
+    const others = p.offers.slice(1, 4).map((o) => `${mk(o.market)} ${tl(o.price)}`).join(' · ');
     return `
     <article class="card"><div class="rw">${thumb(p.imageUrl, p.title)}
       <div class="mid">
         <div class="title">${esc(p.title)}</div>
-        <div class="meta">${esc(p.best.market)}${p.brand ? ' · ' + esc(p.brand) : ''}</div>
+        <div class="meta">${mk(p.best.market)}${p.brand ? ' · ' + esc(p.brand) : ''}</div>
         ${others ? `<div class="prev">${others}</div>` : ''}
       </div>
       <div class="side">${priceHTML(p.best.price)}${watching.has(p.id) ? '<button class="ghost sm" disabled>Takipte</button>' : `<button class="sm add" data-add="${i}">Takibe al</button>`}</div>
@@ -770,14 +775,14 @@ function cardHTML(w, cheapest) {
     : !info ? '' : info.prev != null ? `Önceki <b>${tl(info.prev)}</b> · ${shortDate(info.since)}` : `Fiyat değişmedi${w.last?.checkedAt ? ' · ' + when(w.last.checkedAt) : ''}`;
   const hit = w.last && w.targetPrice && w.last.price <= w.targetPrice;
   const target = w.targetPrice ? `<div class="tgt${hit ? ' hit' : ''}">Hedef ${tl(w.targetPrice)}${hit ? ' ✓' : ''}</div>` : '';
-  const others = (w.last?.offers || []).slice(1, 4).map((o) => `${esc(o.market)} ${tl(o.price)}`).join(' · ');
+  const others = (w.last?.offers || []).slice(1, 4).map((o) => `${mk(o.market)} ${tl(o.price)}`).join(' · ');
   const range = info && info.max > info.min ? `<span>En düşük <b>${tl(info.min)}</b></span><span>En yüksek <b>${tl(info.max)}</b></span>` : '';
   return `
     <article class="card${openRows.has(w.id) ? ' open' : ''}" data-row="${esc(w.id)}">
       <div class="rw">${thumb(w.imageUrl, w.title)}
         <div class="mid">
           <div class="title">${esc(w.title)}</div>
-          <div class="meta">${cheapest ? '<span class="tag">En ucuz</span>' : ''}${uni ? `<span class="unit">${unitLabel(uni)}</span>` : ''}${esc(w.last?.market || '')}</div>
+          <div class="meta">${cheapest ? '<span class="tag">En ucuz</span>' : ''}${uni ? `<span class="unit">${unitLabel(uni)}</span>` : ''}${w.last?.market ? mk(w.last.market) : ''}</div>
           <div class="prev">${prev}</div>
         </div>
         <div class="side">${w.last ? priceHTML(w.last.price) : '—'}${delta}${target}</div>
@@ -799,7 +804,7 @@ function groupHTML(g, items, i, n) {
   }
   const first = items[0]?.last ? items[0] : null;
   const head = `<div class="ghead" data-gtoggle="${esc(g.id)}"><h3>${ICON.chev}<span class="gname">${esc(g.name)}</span><span class="gsub">${items.length} ürün</span></h3><button class="gbtn" data-gedit="${esc(g.id)}" aria-label="Grubu düzenle">${ICON.edit}</button><button class="gbtn" data-gdel="${esc(g.id)}" aria-label="Grubu sil">${ICON.trash}</button></div>`;
-  const sub = first && items.length > 1 ? `<div class="gcheap">En ucuz: <b>${unitInfo(first) ? unitLabel(unitInfo(first)) : tl(first.last.price)}</b> · ${esc(first.title)} · ${esc(first.last.market)}</div>` : '';
+  const sub = first && items.length > 1 ? `<div class="gcheap">En ucuz: <b>${unitInfo(first) ? unitLabel(unitInfo(first)) : tl(first.last.price)}</b> · ${esc(first.title)} · ${mk(first.last.market)}</div>` : '';
   const body = g.collapsed ? '' : items.length
     ? items.map((w, k) => cardHTML(w, items.length > 1 && k === 0)).join('')
     : '<div class="gempty">Bu grupta ürün yok. Bir ürünün "Düzenle" düğmesinden bu gruba taşıyabilirsin.</div>';
@@ -903,7 +908,7 @@ function renderFeed() {
       <div class="fi ${k}">${k === 'tg' ? ICON.target : k === 'up' ? ICON.up : ICON.down}</div>
       <div class="mid"><div class="title">${esc(f.title)}</div>
         <div class="meta">${label[f.kind] || 'Değişti'} · ${when(f.t)}</div>
-        <div class="prev">${f.from != null ? `${tl(f.from)} → ` : ''}<b>${tl(f.to)}</b> · ${esc(f.market)}</div></div>
+        <div class="prev">${f.from != null ? `${tl(f.from)} → ` : ''}<b>${tl(f.to)}</b> · ${mk(f.market)}</div></div>
       <div class="side">${priceHTML(f.to)}${delta}</div>
     </div>
     <div class="more"><div class="acts"><button class="ghost danger" data-fdel="${esc(feedKey(f))}">Bu kaydı sil</button></div></div></article>`;
