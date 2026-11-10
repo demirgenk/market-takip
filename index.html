@@ -217,8 +217,9 @@ dialog .row.end button:not(.ghost){flex:2}
 .mk.tarim{background:#2E9E4F;color:#fff}
 .mk.migros{background:#FF7A00;color:#fff}
 .mk.carrefour{background:#fff;color:#D32F2F;border-color:#e0dede}
-.group .ghead{background:rgba(var(--gc-rgb),.5);border-bottom-color:rgba(var(--gc-rgb),.6)}
-.group .gsub{background:color-mix(in srgb,var(--card) 65%,transparent)}
+.group .ghead{background:rgba(var(--gc-rgb),.16);border-bottom-color:rgba(var(--gc-rgb),.35)}
+@media(prefers-color-scheme:dark){.group .ghead{background:rgba(var(--gc-rgb),.22)}}
+.group .gsub{background:rgba(var(--gc-rgb),.22)}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -340,7 +341,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.7.2', APP_DATE = '10 Kas 2026';
+const APP_VERSION = '1.7.3', APP_DATE = '10 Kas 2026';
 // Grup renkleri (20 renk)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri'], ['#FF3B30', 'Kırmızı'], ['#FF7F6B', 'Mercan'], ['#34C759', 'Yeşil'], ['#5EE6B5', 'Nane'], ['#8FA31E', 'Zeytin'], ['#C6E22E', 'Limon'], ['#14B8A6', 'Turkuaz'], ['#38BDF8', 'Gökmavisi'], ['#1E3A8A', 'Lacivert'], ['#A78BFA', 'Lavanta'], ['#C2185B', 'Vişne'], ['#A1724E', 'Kahve']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
