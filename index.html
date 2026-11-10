@@ -121,11 +121,22 @@ button:disabled{opacity:.5;cursor:default}
 dialog{border:1px solid var(--line);border-radius:12px;padding:14px;width:min(92vw,360px);background:var(--card);color:var(--ink)}
 dialog::backdrop{background:rgba(8,14,20,.5)}
 dialog h2{margin:0 0 2px;font-size:14px}
+.top .ver{font-size:11px;font-weight:500;opacity:.65}
+.bar .muted{flex:1 1 0;min-width:0}
+.group{border-left:4px solid var(--gc,var(--line));background:linear-gradient(var(--gc-wash,transparent),var(--gc-wash,transparent)),var(--card)}
+.group .ghead{background:var(--gc-soft,var(--soft))}
+.group.reorder .ghead{border-bottom:0}
+.gbtn:disabled{opacity:.3}
+.card[data-frow]{cursor:pointer}
+.card[data-frow]:active{background:var(--soft)}
+.swatches{display:flex;flex-wrap:wrap;gap:8px;padding:2px 0}
+.sw{width:30px;height:30px;min-height:30px;padding:0;border-radius:50%;background:var(--c);border:2px solid transparent;box-shadow:inset 0 0 0 2px var(--card)}
+.sw[aria-pressed=true]{border-color:var(--ink)}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
-<header class="top"><span class="mark" aria-hidden="true">₺</span><h1>Market Takip</h1><span id="demo" class="badge" hidden>Demo verisi</span></header>
+<header class="top"><span class="mark" aria-hidden="true">₺</span><h1>Market Takip</h1><span class="ver" id="hdr-ver"></span><span id="demo" class="badge" hidden>Demo verisi</span></header>
 
 <main>
   <section id="view-search" class="view">
@@ -139,12 +150,15 @@ dialog h2{margin:0 0 2px;font-size:14px}
   </section>
 
   <section id="view-watch" class="view" hidden>
-    <div class="bar"><div id="last-run" class="muted small"></div><div class="row"><button id="add-group" class="ghost sm">+ Grup</button><button id="check-now" class="ghost sm">Kontrol et</button></div></div>
+    <div class="bar"><div id="last-run" class="muted small"></div><div class="row"><button id="add-group" class="ghost sm">+ Grup</button><button id="reorder" class="ghost sm" hidden>Sırala</button><button id="check-now" class="ghost sm">Kontrol et</button></div></div>
     <div id="watch-msg" class="msg"></div>
     <div id="watch-list"></div>
   </section>
 
-  <section id="view-feed" class="view" hidden><div id="feed-list" class="sheet"></div></section>
+  <section id="view-feed" class="view" hidden>
+    <div class="bar"><div id="feed-count" class="muted small"></div><button id="feed-clear" class="ghost sm danger" hidden>Tümünü sil</button></div>
+    <div id="feed-list" class="sheet"></div>
+  </section>
 
   <section id="view-settings" class="view" hidden>
     <form id="settings-form" class="panel form">
@@ -186,6 +200,7 @@ dialog h2{margin:0 0 2px;font-size:14px}
     <div class="panel form" style="margin-top:10px">
       <h2>Telefona yükle</h2>
       <p id="install-text" class="muted small"></p>
+      <p class="muted small">Sürüm <b id="ver"></b></p>
       <button type="button" id="install-btn" class="ghost" hidden>Ana ekrana ekle</button>
     </div>
 
@@ -220,6 +235,7 @@ dialog h2{margin:0 0 2px;font-size:14px}
   <form method="dialog" class="form">
     <h2 id="name-title">Grup adı</h2>
     <label>Ad<input id="name-input" placeholder="ör. 5 lt ayçiçek yağı" autocomplete="off"></label>
+    <div class="swatches" id="swatches" role="group" aria-label="Renk"></div>
     <div class="row end"><button type="button" class="ghost" data-close>Vazgeç</button><button value="ok">Tamam</button></div>
   </form>
 </dialog>
@@ -234,6 +250,10 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
+const APP_VERSION = '1.5.0', APP_DATE = '10 Kas 2026';
+// Grup renkleri (fiyat düşüş/artış renkleri olan yeşil ve kırmızıyla karışmasın diye onlar yok)
+const PALETTE = [['#2F6FED', 'Mavi'], ['#1B9AAA', 'Turkuaz'], ['#E39B0B', 'Sarı'], ['#E8590C', 'Turuncu'], ['#C2418F', 'Pembe'], ['#7C4DDB', 'Mor'], ['#64748B', 'Gri'], ['#8A6A3B', 'Kahve']];
+const gcStyle = (hex) => { const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)); return `--gc:${hex};--gc-soft:rgba(${r},${g},${b},.16);--gc-wash:rgba(${r},${g},${b},.05)`; };
 
 // ---------- Veri: localStorage içinde tek JSON ----------
 const KEY = 'market-takip-v1';
@@ -479,8 +499,9 @@ function fillGroupSelect(sel, current) {
   sel.innerHTML = '<option value="">Grupsuz</option>' + db.groups.map((g) => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('') + '<option value="__new">➕ Yeni grup…</option>';
   sel.value = db.groups.some((g) => g.id === current) ? current : '';
 }
-function newGroup(name) {
-  const g = { id: 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name.trim(), collapsed: false };
+const nextColor = () => { const used = new Set(db.groups.map((g) => g.color)); return (PALETTE.find(([c]) => !used.has(c)) || PALETTE[db.groups.length % PALETTE.length])[0]; };
+function newGroup(name, color) {
+  const g = { id: 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name.trim(), color: color || nextColor(), collapsed: false };
   db.groups.push(g);
   return g;
 }
@@ -504,11 +525,16 @@ function askItem(title, { target = null, groupId = null } = {}) {
     dlg.showModal();
   });
 }
-function askName(title, current = '') {
+// Grup adı ve rengi sorar. İptalde undefined döner.
+function askGroup(title, { name = '', color } = {}) {
   return new Promise((resolve) => {
-    const dlg = $('#name-dialog'), inp = $('#name-input');
-    $('#name-title').textContent = title; inp.value = current; dlg.returnValue = '';
-    dlg.addEventListener('close', () => resolve(dlg.returnValue === 'ok' && inp.value.trim() ? inp.value.trim() : undefined), { once: true });
+    const dlg = $('#name-dialog'), inp = $('#name-input'), box = $('#swatches');
+    let sel = color || nextColor();
+    $('#name-title').textContent = title; inp.value = name; dlg.returnValue = '';
+    const paint = () => { box.innerHTML = PALETTE.map(([c, n]) => `<button type="button" class="sw" data-c="${c}" style="--c:${c}" aria-label="${n}" aria-pressed="${c === sel}"></button>`).join(''); };
+    paint();
+    box.onclick = (e) => { const b = e.target.closest('[data-c]'); if (b) { sel = b.dataset.c; paint(); } };
+    dlg.addEventListener('close', () => resolve(dlg.returnValue === 'ok' && inp.value.trim() ? { name: inp.value.trim(), color: sel } : undefined), { once: true });
     dlg.showModal();
   });
 }
@@ -639,24 +665,35 @@ function cardHTML(w, cheapest) {
       </div>
     </article>`;
 }
-function groupHTML(g, items) {
+let reorderMode = false;
+function groupHTML(g, items, i, n) {
+  const style = gcStyle(g.color || PALETTE[0][0]);
+  if (reorderMode) {
+    return `<section class="group sheet reorder" style="${style}"><div class="ghead" style="cursor:default"><h3><span class="gname">${esc(g.name)}</span><span class="gsub">${items.length} ürün</span></h3><button class="gbtn" data-gup="${esc(g.id)}" ${i === 0 ? 'disabled' : ''} aria-label="Yukarı taşı">${ICON.up}</button><button class="gbtn" data-gdown="${esc(g.id)}" ${i === n - 1 ? 'disabled' : ''} aria-label="Aşağı taşı">${ICON.down}</button></div></section>`;
+  }
   const first = items[0]?.last ? items[0] : null;
-  const head = `<div class="ghead" data-gtoggle="${esc(g.id)}"><h3>${ICON.chev}<span class="gname">${esc(g.name)}</span><span class="gsub">${items.length} ürün</span></h3><button class="gbtn" data-gedit="${esc(g.id)}" aria-label="Grubu yeniden adlandır">${ICON.edit}</button><button class="gbtn" data-gdel="${esc(g.id)}" aria-label="Grubu sil">${ICON.trash}</button></div>`;
+  const head = `<div class="ghead" data-gtoggle="${esc(g.id)}"><h3>${ICON.chev}<span class="gname">${esc(g.name)}</span><span class="gsub">${items.length} ürün</span></h3><button class="gbtn" data-gedit="${esc(g.id)}" aria-label="Grubu düzenle">${ICON.edit}</button><button class="gbtn" data-gdel="${esc(g.id)}" aria-label="Grubu sil">${ICON.trash}</button></div>`;
   const sub = first && items.length > 1 ? `<div class="gcheap">En ucuz: <b>${tl(first.last.price)}</b> · ${esc(first.title)} · ${esc(first.last.market)}</div>` : '';
   const body = g.collapsed ? '' : items.length
-    ? items.map((w, i) => cardHTML(w, items.length > 1 && i === 0)).join('')
+    ? items.map((w, k) => cardHTML(w, items.length > 1 && k === 0)).join('')
     : '<div class="gempty">Bu grupta ürün yok. Bir ürünün "Düzenle" düğmesinden bu gruba taşıyabilirsin.</div>';
-  return `<section class="group sheet${g.collapsed ? ' collapsed' : ''}">${head}${sub}${body}</section>`;
+  return `<section class="group sheet${g.collapsed ? ' collapsed' : ''}" style="${style}">${head}${sub}${body}</section>`;
 }
 function renderWatch() {
   refreshCount();
   $('#last-run').textContent = 'Son kontrol: ' + when(db.lastRun);
   if (!db.watch.length && !db.groups.length) setMsg($('#watch-msg'), 'Henüz takip ettiğin ürün yok. Ara sekmesinden ekleyebilirsin.');
+  // Rengi olmayan eski gruplara sırayla renk ver
+  let colored = false;
+  db.groups.forEach((g, i) => { if (!g.color) { g.color = PALETTE[i % PALETTE.length][0]; colored = true; } });
+  if (colored) save();
+  if (db.groups.length < 2) reorderMode = false;
+  const rb = $('#reorder'); rb.hidden = db.groups.length < 2; rb.textContent = reorderMode ? 'Bitti' : 'Sırala';
   const ids = new Set(db.groups.map((g) => g.id));
   const price = (w) => w.last?.price ?? Infinity;
   const loose = db.watch.filter((w) => !ids.has(w.groupId));
-  let html = db.groups.map((g) => groupHTML(g, db.watch.filter((w) => w.groupId === g.id).sort((a, b) => price(a) - price(b)))).join('');
-  if (loose.length) {
+  let html = db.groups.map((g, i) => groupHTML(g, db.watch.filter((w) => w.groupId === g.id).sort((a, b) => price(a) - price(b)), i, db.groups.length)).join('');
+  if (loose.length && !reorderMode) {
     html += `<section class="group sheet">${db.groups.length ? `<div class="ghead" style="cursor:default"><h3><span class="gname">Grupsuz</span><span class="gsub">${loose.length} ürün</span></h3></div>` : ''}${loose.map((w) => cardHTML(w, false)).join('')}</section>`;
   }
   $('#watch-list').innerHTML = html;
@@ -671,8 +708,11 @@ $('#watch-list').addEventListener('click', async (e) => {
   const d = t.dataset;
   if (d.gedit) {
     const g = db.groups.find((x) => x.id === d.gedit);
-    const name = await askName('Grubu yeniden adlandır', g.name);
-    if (name) { g.name = name; save(); renderWatch(); }
+    const r = await askGroup('Grubu düzenle', { name: g.name, color: g.color });
+    if (r) { g.name = r.name; g.color = r.color; save(); renderWatch(); }
+  } else if (d.gup || d.gdown) {
+    const i = db.groups.findIndex((x) => x.id === (d.gup || d.gdown)), j = i + (d.gup ? -1 : 1);
+    if (i >= 0 && j >= 0 && j < db.groups.length) { [db.groups[i], db.groups[j]] = [db.groups[j], db.groups[i]]; save(); renderWatch(); }
   } else if (d.gdel) {
     const g = db.groups.find((x) => x.id === d.gdel);
     const n = db.watch.filter((w) => w.groupId === g.id).length;
@@ -695,9 +735,10 @@ $('#watch-list').addEventListener('click', async (e) => {
   }
 });
 $('#add-group').addEventListener('click', async () => {
-  const name = await askName('Yeni grup', '');
-  if (name) { newGroup(name); save(); renderWatch(); }
+  const r = await askGroup('Yeni grup', {});
+  if (r) { newGroup(r.name, r.color); save(); renderWatch(); }
 });
+$('#reorder').addEventListener('click', () => { reorderMode = !reorderMode; renderWatch(); });
 $('#check-now').addEventListener('click', async (e) => {
   const btn = e.currentTarget;
   btn.disabled = true; setMsg($('#watch-msg'), 'Fiyatlar kontrol ediliyor…');
@@ -707,21 +748,35 @@ $('#check-now').addEventListener('click', async (e) => {
 });
 
 // Değişimler
+const feedKey = (f) => `${f.t}|${f.id}|${f.kind}`;
 function renderFeed() {
   const label = { target: 'Hedef fiyata ulaştı', up: 'Fiyat arttı', down: 'Fiyat düştü', drop: 'Fiyat düştü' };
+  $('#feed-count').textContent = db.feed.length ? `${db.feed.length} değişim` : '';
+  $('#feed-clear').hidden = !db.feed.length;
   $('#feed-list').innerHTML = db.feed.length ? db.feed.map((f) => {
     const k = f.kind === 'target' ? 'tg' : f.kind === 'up' ? 'up' : 'dn';
     const pct = f.from ? ((f.to - f.from) / f.from) * 100 : null;
     const delta = pct != null && f.kind !== 'target' ? `<div class="delta ${pct < 0 ? 'dn' : 'up'}">${pct < 0 ? '▼' : '▲'} %${pctFmt(Math.abs(pct))}</div>` : '';
-    return `<article class="card"><div class="rw feed">
+    return `<article class="card" data-frow="${esc(feedKey(f))}"><div class="rw feed">
       <div class="fi ${k}">${k === 'tg' ? ICON.target : k === 'up' ? ICON.up : ICON.down}</div>
       <div class="mid"><div class="title">${esc(f.title)}</div>
         <div class="meta">${label[f.kind] || 'Değişti'} · ${when(f.t)}</div>
         <div class="prev">${f.from != null ? `${tl(f.from)} → ` : ''}<b>${tl(f.to)}</b> · ${esc(f.market)}</div></div>
       <div class="side">${priceHTML(f.to)}${delta}</div>
-    </div></article>`;
+    </div>
+    <div class="more"><div class="acts"><button class="ghost danger" data-fdel="${esc(feedKey(f))}">Bu kaydı sil</button></div></div></article>`;
   }).join('') : '<p class="empty">Henüz bir fiyat değişimi yakalanmadı. Takip listendeki ürünlerin fiyatı değiştiğinde burada görünür.</p>';
 }
+$('#feed-list').addEventListener('click', (e) => {
+  const del = e.target.closest('[data-fdel]');
+  if (del) { const k = del.dataset.fdel; db.feed = db.feed.filter((f) => feedKey(f) !== k); save(); renderFeed(); return; }
+  const row = e.target.closest('[data-frow]');
+  if (row) row.classList.toggle('open');
+});
+$('#feed-clear').addEventListener('click', () => {
+  if (!db.feed.length) return;
+  if (confirm(`${db.feed.length} değişim kaydı silinsin mi? Takip listen ve fiyat geçmişin etkilenmez.`)) { db.feed = []; save(); renderFeed(); }
+});
 
 // Ayarlar
 const FIELDS = ['lat', 'lon', 'distance', 'intervalHours', 'minDropPercent', 'ntfyTopic', 'proxy'];
@@ -844,6 +899,8 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigat
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); // verilerin tarayıcı tarafından silinmesini zorlaştırır
 
 // ---------- Başlangıç ----------
+$('#hdr-ver').textContent = 'v' + APP_VERSION;
+$('#ver').textContent = `${APP_VERSION} (${APP_DATE})`;
 updateDemoBadge(); refreshCount();
 const start = (location.hash || '').slice(1);
 if (!db.config.demo && (db.config.lat == null || db.config.lon == null)) { show('settings'); setMsg($('#settings-msg'), 'Başlamak için konumunu gir (veya demo modunu aç).'); }
