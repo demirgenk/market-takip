@@ -228,6 +228,8 @@ dialog .row.end button:not(.ghost){flex:2}
 .group .gcheap{display:flex;align-items:center;gap:6px;white-space:nowrap;padding:3px 14px 4px;line-height:1.2;font-size:12px}
 .group .gcheap .gct{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--ink);font-weight:600}
 .group .gcheap .mk{flex:none;font-size:10px;padding:0 8px}
+.group .pr{color:#1FBF6A}
+@media(prefers-color-scheme:dark){.group .pr{color:#7DE8BE}}
 .gacts{margin-left:auto;display:flex;flex:none}
 .group .gcheap .gbtn{width:30px;height:24px;min-height:24px}
 .group .gcheap{padding:1px 4px 1px 14px}
@@ -359,7 +361,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.7.4', APP_DATE = '10 Kas 2026';
+const APP_VERSION = '1.7.5', APP_DATE = '10 Kas 2026';
 // Grup renkleri (20 renk)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri'], ['#FF3B30', 'Kırmızı'], ['#FF7F6B', 'Mercan'], ['#34C759', 'Yeşil'], ['#5EE6B5', 'Nane'], ['#8FA31E', 'Zeytin'], ['#C6E22E', 'Limon'], ['#14B8A6', 'Turkuaz'], ['#38BDF8', 'Gökmavisi'], ['#1E3A8A', 'Lacivert'], ['#A78BFA', 'Lavanta'], ['#C2185B', 'Vişne'], ['#A1724E', 'Kahve']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
@@ -832,10 +834,10 @@ function groupHTML(g, items, i, n) {
   }
   const first = items[0]?.last ? items[0] : null;
   const bestU = first && items.length > 1 ? unitInfo(first) : null;
-  const best = first && items.length > 1 ? `<span class="gbest">En ucuz: <b>${bestU ? tl(bestU.per) + '/' + bestU.kind : tl(first.last.price)}</b></span>` : '';
+  const best = first && items.length > 1 ? `<span class="gbest">En ucuz: <b>${bestU ? unitLabel(bestU) : tl(first.last.price)}</b></span>` : '';
   const head = `<div class="ghead" data-gtoggle="${esc(g.id)}"><h3>${ICON.chev}<span class="gname">${esc(g.name)}</span><span class="gsub">${items.length} ürün</span>${best}</h3></div>`;
   const acts = `<span class="gacts"><button class="gbtn" data-gedit="${esc(g.id)}" aria-label="Grubu düzenle">${ICON.edit}</button><button class="gbtn" data-gdel="${esc(g.id)}" aria-label="Grubu sil">${ICON.trash}</button></span>`;
-  const sub = `<div class="gcheap">${first ? `<span class="gct">${esc(first.title)}</span>${first.last.market ? mk(first.last.market) : ''}` : '<span class="gct muted">Ürün yok</span>'}${acts}</div>`;
+  const sub = `<div class="gcheap">${first ? `${first.last.market ? mk(first.last.market) : ''}<span class="gct">${esc(first.title)}</span>` : '<span class="gct muted">Ürün yok</span>'}${acts}</div>`;
   const body = g.collapsed ? '' : items.length
     ? items.map((w, k) => cardHTML(w, items.length > 1 && k === 0)).join('')
     : '<div class="gempty">Bu grupta ürün yok. Bir ürünün "Düzenle" düğmesinden bu gruba taşıyabilirsin.</div>';
