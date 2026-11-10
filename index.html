@@ -265,7 +265,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.6.1', APP_DATE = '10 Kas 2026';
+const APP_VERSION = '1.6.2', APP_DATE = '10 Kas 2026';
 // Grup renkleri (fiyat düşüş/artış renkleri olan yeşil ve kırmızıyla karışmasın diye onlar yok)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
@@ -656,8 +656,15 @@ const PACK_RE = /(\d+)\s*['’]?\s*(?:adet|li|lı|lu|lü)(?![a-zçğıöşüâî
 function unitInfo(w) {
   const price = w.last?.price;
   if (!Number.isFinite(price) || price <= 0) return null;
-  const t = String(w.title || '').toLocaleLowerCase('tr');
+  let t = String(w.title || '').toLocaleLowerCase('tr');
+  // Başlıkta "30 Adet" yazıyorsa adet her zaman önceliklidir (örn. "53-62 Gr 30 Adet" yumurta)
+  const ad = /(\d+)\s*adet(?![a-zçğıöşüâîû])/.exec(t);
+  if (ad && +ad[1] > 0) return { kind: 'adet', per: price / +ad[1] };
+  t = t.replace(/\d+(?:[.,]\d+)?\s*-\s*\d+(?:[.,]\d+)?\s*(?:kg|gram|gr|g|ml|cl|lt|l)(?![a-zçğıöşüâîû])/g, ' ');
   const m = UNIT_RE.exec(t);
+  const pk = PACK_RE.exec(t);
+  // Adet yazıyorsa (ör. "53-62 Gr 30 Adet") gram/ağırlık değil adet esas alınır
+  if (pk && +pk[1] > 0 && (/adet/.test(t) || (m && /^(g|gr|gram)$/.test(m[3])))) return { kind: 'adet', per: price / +pk[1] };
   if (m) {
     const n = parseFloat(m[2].replace(',', '.')), u = m[3];
     let kind = 'lt', base = n;
