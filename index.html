@@ -125,8 +125,16 @@ dialog h2{margin:0 0 2px;font-size:14px}
 .bar .muted{flex:1 1 0;min-width:0}
 :root{--a-head:.30;--a-wash:.11;--a-line:.7;--a-glow:.32;--dn-rgb:0,190,110;--up-rgb:255,45,70;--tg-rgb:255,196,0;--a-feed:.14;--a-feedline:.55}
 @media(prefers-color-scheme:dark){:root{--a-head:.36;--a-wash:.12;--a-line:.85;--a-glow:.5;--dn-rgb:46,229,157;--up-rgb:255,92,92;--a-feed:.2;--a-feedline:.7}}
-.group{--gc-rgb:120,134,150;border:1px solid rgba(var(--gc-rgb),var(--a-line));border-left:5px solid rgb(var(--gc-rgb));background:rgba(var(--gc-rgb),var(--a-wash));box-shadow:0 0 14px rgba(var(--gc-rgb),var(--a-glow))}
-.group .ghead{background:rgba(var(--gc-rgb),var(--a-head))}
+.group{--gc-rgb:120,134,150;position:relative;border:1px solid rgba(var(--gc-rgb),.38);border-radius:14px;background:var(--card);box-shadow:0 1px 2px rgba(16,32,46,.07),0 8px 20px -10px rgba(var(--gc-rgb),.55)}
+.group::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,rgb(var(--gc-rgb)),rgba(var(--gc-rgb),.25));z-index:1}
+.group .ghead{padding:9px 6px 7px 12px;background:linear-gradient(100deg,rgba(var(--gc-rgb),.24),rgba(var(--gc-rgb),.05) 80%);border-bottom:1px solid rgba(var(--gc-rgb),.22)}
+.group .gname{font-size:14px;letter-spacing:-.01em}
+.group .gsub{font-size:11px;font-weight:700;color:var(--ink);background:rgba(var(--gc-rgb),.2);padding:1px 8px;border-radius:99px}
+.group .chev{color:rgb(var(--gc-rgb))}
+.group .gcheap{background:rgba(var(--gc-rgb),.06);border-bottom:1px solid rgba(var(--gc-rgb),.16)}
+.group .card+.card{border-top:1px solid rgba(var(--gc-rgb),.16)}
+.unit{display:inline-block;font-size:11px;font-weight:700;color:var(--ink);background:rgba(var(--gc-rgb),.18);border-radius:4px;padding:1px 6px;margin-right:5px;vertical-align:1px;font-variant-numeric:tabular-nums}
+.group.collapsed .ghead{border-bottom:0}
 .flist{display:grid;gap:8px}
 .flist>.card{border:1px solid rgba(var(--fc),var(--a-feedline));border-radius:10px;background:rgba(var(--fc),var(--a-feed));box-shadow:inset 4px 0 0 rgb(var(--fc))}
 .f-dn{--fc:var(--dn-rgb)}.f-up{--fc:var(--up-rgb)}.f-tg{--fc:var(--tg-rgb)}
@@ -215,7 +223,7 @@ dialog h2{margin:0 0 2px;font-size:14px}
       <h2 style="margin-top:0">Veriler (JSON)</h2>
       <p class="muted small">Takip listen, fiyat geçmişin ve ayarların bu cihazdaki tarayıcıda saklanır. Yedeklemek veya başka cihaza taşımak için JSON dosyası olarak indirip yükleyebilirsin.</p>
       <div class="row"><button type="button" id="export" class="ghost">JSON indir</button><button type="button" id="import" class="ghost">JSON yükle</button></div>
-      <input id="import-file" type="file" accept="application/json,.json" hidden>
+      <input id="import-file" type="file" hidden>
       <div id="data-msg" class="msg"></div>
     </div>
   </section>
@@ -257,7 +265,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.6.0', APP_DATE = '10 Kas 2026';
+const APP_VERSION = '1.6.1', APP_DATE = '10 Kas 2026';
 // Grup renkleri (fiyat düşüş/artış renkleri olan yeşil ve kırmızıyla karışmasın diye onlar yok)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
@@ -642,7 +650,40 @@ function priceInfo(w) {
     min: Math.min(...prices), max: Math.max(...prices),
   };
 }
+const UNIT_RE = /(?:(\d+)\s*[x×*]\s*)?(\d+(?:[.,]\d+)?)\s*(kg|kilo|kılo|gram|gr|g|l[iı]tre|lt|ml|cl|l)(?![a-zçğıöşüâîû0-9])/;
+const PACK_RE = /(\d+)\s*['’]?\s*(?:adet|li|lı|lu|lü)(?![a-zçğıöşüâîû])/;
+// Ürün adından paket boyutunu okuyup adet / lt / kg başına fiyatı hesaplar
+function unitInfo(w) {
+  const price = w.last?.price;
+  if (!Number.isFinite(price) || price <= 0) return null;
+  const t = String(w.title || '').toLocaleLowerCase('tr');
+  const m = UNIT_RE.exec(t);
+  if (m) {
+    const n = parseFloat(m[2].replace(',', '.')), u = m[3];
+    let kind = 'lt', base = n;
+    if (u === 'kg' || u === 'kilo' || u === 'kılo') { kind = 'kg'; base = n; }
+    else if (u === 'g' || u === 'gr' || u === 'gram') { kind = 'kg'; base = n / 1000; }
+    else if (u === 'ml') base = n / 1000;
+    else if (u === 'cl') base = n / 100;
+    let mult = m[1] ? +m[1] : 1;
+    if (!m[1]) { const p = PACK_RE.exec(t); if (p && +p[1] > 1) mult = +p[1]; }
+    base *= mult;
+    if (base > 0) return { kind, per: price / base };
+  }
+  const p = PACK_RE.exec(t);
+  if (p && +p[1] > 0) return { kind: 'adet', per: price / +p[1] };
+  return null;
+}
+const unitLabel = (u) => `${tl(u.per)} / ${u.kind}`;
+const UNIT_RANK = { kg: 0, lt: 1, adet: 2 };
+function sortItems(list) {
+  const pr = (w) => w.last?.price ?? Infinity;
+  return list.map((w) => ({ w, u: unitInfo(w) }))
+    .sort((a, b) => (a.u ? UNIT_RANK[a.u.kind] : 3) - (b.u ? UNIT_RANK[b.u.kind] : 3) || (a.u && b.u ? a.u.per - b.u.per : pr(a.w) - pr(b.w)))
+    .map((x) => x.w);
+}
 function cardHTML(w, cheapest) {
+  const uni = unitInfo(w);
   const info = priceInfo(w);
   let delta = '';
   if (info && info.prev != null) {
@@ -660,7 +701,7 @@ function cardHTML(w, cheapest) {
       <div class="rw">${thumb(w.imageUrl, w.title)}
         <div class="mid">
           <div class="title">${esc(w.title)}</div>
-          <div class="meta">${cheapest ? '<span class="tag">En ucuz</span>' : ''}${esc(w.last?.market || '')}</div>
+          <div class="meta">${cheapest ? '<span class="tag">En ucuz</span>' : ''}${uni ? `<span class="unit">${unitLabel(uni)}</span>` : ''}${esc(w.last?.market || '')}</div>
           <div class="prev">${prev}</div>
         </div>
         <div class="side">${w.last ? priceHTML(w.last.price) : '—'}${delta}${target}</div>
@@ -682,7 +723,7 @@ function groupHTML(g, items, i, n) {
   }
   const first = items[0]?.last ? items[0] : null;
   const head = `<div class="ghead" data-gtoggle="${esc(g.id)}"><h3>${ICON.chev}<span class="gname">${esc(g.name)}</span><span class="gsub">${items.length} ürün</span></h3><button class="gbtn" data-gedit="${esc(g.id)}" aria-label="Grubu düzenle">${ICON.edit}</button><button class="gbtn" data-gdel="${esc(g.id)}" aria-label="Grubu sil">${ICON.trash}</button></div>`;
-  const sub = first && items.length > 1 ? `<div class="gcheap">En ucuz: <b>${tl(first.last.price)}</b> · ${esc(first.title)} · ${esc(first.last.market)}</div>` : '';
+  const sub = first && items.length > 1 ? `<div class="gcheap">En ucuz: <b>${unitInfo(first) ? unitLabel(unitInfo(first)) : tl(first.last.price)}</b> · ${esc(first.title)} · ${esc(first.last.market)}</div>` : '';
   const body = g.collapsed ? '' : items.length
     ? items.map((w, k) => cardHTML(w, items.length > 1 && k === 0)).join('')
     : '<div class="gempty">Bu grupta ürün yok. Bir ürünün "Düzenle" düğmesinden bu gruba taşıyabilirsin.</div>';
@@ -699,11 +740,10 @@ function renderWatch() {
   if (db.groups.length < 2) reorderMode = false;
   const rb = $('#reorder'); rb.hidden = db.groups.length < 2; rb.textContent = reorderMode ? 'Bitti' : 'Sırala';
   const ids = new Set(db.groups.map((g) => g.id));
-  const price = (w) => w.last?.price ?? Infinity;
   const loose = db.watch.filter((w) => !ids.has(w.groupId));
-  let html = db.groups.map((g, i) => groupHTML(g, db.watch.filter((w) => w.groupId === g.id).sort((a, b) => price(a) - price(b)), i, db.groups.length)).join('');
+  let html = db.groups.map((g, i) => groupHTML(g, sortItems(db.watch.filter((w) => w.groupId === g.id)), i, db.groups.length)).join('');
   if (loose.length && !reorderMode) {
-    html += `<section class="group sheet">${db.groups.length ? `<div class="ghead" style="cursor:default"><h3><span class="gname">Grupsuz</span><span class="gsub">${loose.length} ürün</span></h3></div>` : ''}${loose.map((w) => cardHTML(w, false)).join('')}</section>`;
+    html += `<section class="group sheet">${db.groups.length ? `<div class="ghead" style="cursor:default"><h3><span class="gname">Grupsuz</span><span class="gsub">${loose.length} ürün</span></h3></div>` : ''}${sortItems(loose).map((w) => cardHTML(w, false)).join('')}</section>`;
   }
   $('#watch-list').innerHTML = html;
 }
@@ -861,9 +901,10 @@ $('#diag').addEventListener('click', async () => {
 });
 
 // JSON yedek / yükle
+const stamp = () => { const d = new Date(), p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`; };
 $('#export').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
-  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'market-takip-yedek.json' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `market-takip-yedek-${stamp()}.json` });
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   setMsg($('#data-msg'), 'JSON dosyası indirildi ✓');
@@ -874,13 +915,13 @@ $('#import-file').addEventListener('change', async (e) => {
   e.target.value = '';
   if (!file) return;
   try {
-    const j = JSON.parse(await file.text());
+    const j = JSON.parse((await file.text()).replace(/^\uFEFF/, '').trim());
     if (!j || !Array.isArray(j.watch)) throw new Error('Bu dosya Market Takip yedeği gibi görünmüyor');
     if (!confirm(`Yedekteki ${j.watch.length} ürün, mevcut verilerin yerine geçsin mi?`)) return;
     db = merge(j); depotCache.clear(); searchCache.clear(); save();
     updateDemoBadge(); loadSettings(); refreshCount();
     setMsg($('#data-msg'), `Yüklendi: ${db.watch.length} ürün ✓`);
-  } catch (err) { setMsg($('#data-msg'), err.message, true); }
+  } catch (err) { setMsg($('#data-msg'), err instanceof SyntaxError ? 'Dosya okunamadı: geçerli bir JSON yedeği değil' : err.message, true); }
 });
 
 // ---------- Uygulama olarak yükleme ----------
