@@ -123,8 +123,15 @@ dialog::backdrop{background:rgba(8,14,20,.5)}
 dialog h2{margin:0 0 2px;font-size:14px}
 .top .ver{font-size:11px;font-weight:500;opacity:.65}
 .bar .muted{flex:1 1 0;min-width:0}
-.group{border-left:4px solid var(--gc,var(--line));background:linear-gradient(var(--gc-wash,transparent),var(--gc-wash,transparent)),var(--card)}
-.group .ghead{background:var(--gc-soft,var(--soft))}
+:root{--a-head:.30;--a-wash:.11;--a-line:.7;--a-glow:.32;--dn-rgb:0,190,110;--up-rgb:255,45,70;--tg-rgb:255,196,0;--a-feed:.14;--a-feedline:.55}
+@media(prefers-color-scheme:dark){:root{--a-head:.36;--a-wash:.12;--a-line:.85;--a-glow:.5;--dn-rgb:46,229,157;--up-rgb:255,92,92;--a-feed:.2;--a-feedline:.7}}
+.group{--gc-rgb:120,134,150;border:1px solid rgba(var(--gc-rgb),var(--a-line));border-left:5px solid rgb(var(--gc-rgb));background:rgba(var(--gc-rgb),var(--a-wash));box-shadow:0 0 14px rgba(var(--gc-rgb),var(--a-glow))}
+.group .ghead{background:rgba(var(--gc-rgb),var(--a-head))}
+.flist{display:grid;gap:8px}
+.flist>.card{border:1px solid rgba(var(--fc),var(--a-feedline));border-radius:10px;background:rgba(var(--fc),var(--a-feed));box-shadow:inset 4px 0 0 rgb(var(--fc))}
+.f-dn{--fc:var(--dn-rgb)}.f-up{--fc:var(--up-rgb)}.f-tg{--fc:var(--tg-rgb)}
+.f-dn .fi{background:rgba(var(--dn-rgb),.3);color:var(--down)}
+.f-up .fi{background:rgba(var(--up-rgb),.28);color:var(--up)}
 .group.reorder .ghead{border-bottom:0}
 .gbtn:disabled{opacity:.3}
 .card[data-frow]{cursor:pointer}
@@ -157,7 +164,7 @@ dialog h2{margin:0 0 2px;font-size:14px}
 
   <section id="view-feed" class="view" hidden>
     <div class="bar"><div id="feed-count" class="muted small"></div><button id="feed-clear" class="ghost sm danger" hidden>Tümünü sil</button></div>
-    <div id="feed-list" class="sheet"></div>
+    <div id="feed-list" class="flist"></div>
   </section>
 
   <section id="view-settings" class="view" hidden>
@@ -250,10 +257,12 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.5.0', APP_DATE = '10 Kas 2026';
+const APP_VERSION = '1.6.0', APP_DATE = '10 Kas 2026';
 // Grup renkleri (fiyat düşüş/artış renkleri olan yeşil ve kırmızıyla karışmasın diye onlar yok)
-const PALETTE = [['#2F6FED', 'Mavi'], ['#1B9AAA', 'Turkuaz'], ['#E39B0B', 'Sarı'], ['#E8590C', 'Turuncu'], ['#C2418F', 'Pembe'], ['#7C4DDB', 'Mor'], ['#64748B', 'Gri'], ['#8A6A3B', 'Kahve']];
-const gcStyle = (hex) => { const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)); return `--gc:${hex};--gc-soft:rgba(${r},${g},${b},.16);--gc-wash:rgba(${r},${g},${b},.05)`; };
+const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri']];
+// 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
+const LEGACY = { '#2F6FED': '#2979FF', '#1B9AAA': '#00D4E8', '#E39B0B': '#FFC400', '#E8590C': '#FF6D00', '#C2418F': '#FF2D95', '#7C4DDB': '#B14DFF', '#64748B': '#8A94A6', '#8A6A3B': '#5B6CFF' };
+const gcStyle = (hex) => { const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)); return `--gc:${hex};--gc-rgb:${r},${g},${b}`; };
 
 // ---------- Veri: localStorage içinde tek JSON ----------
 const KEY = 'market-takip-v1';
@@ -685,7 +694,7 @@ function renderWatch() {
   if (!db.watch.length && !db.groups.length) setMsg($('#watch-msg'), 'Henüz takip ettiğin ürün yok. Ara sekmesinden ekleyebilirsin.');
   // Rengi olmayan eski gruplara sırayla renk ver
   let colored = false;
-  db.groups.forEach((g, i) => { if (!g.color) { g.color = PALETTE[i % PALETTE.length][0]; colored = true; } });
+  db.groups.forEach((g, i) => { const m = LEGACY[g.color]; if (!g.color || m) { g.color = m || PALETTE[i % PALETTE.length][0]; colored = true; } });
   if (colored) save();
   if (db.groups.length < 2) reorderMode = false;
   const rb = $('#reorder'); rb.hidden = db.groups.length < 2; rb.textContent = reorderMode ? 'Bitti' : 'Sırala';
@@ -757,7 +766,7 @@ function renderFeed() {
     const k = f.kind === 'target' ? 'tg' : f.kind === 'up' ? 'up' : 'dn';
     const pct = f.from ? ((f.to - f.from) / f.from) * 100 : null;
     const delta = pct != null && f.kind !== 'target' ? `<div class="delta ${pct < 0 ? 'dn' : 'up'}">${pct < 0 ? '▼' : '▲'} %${pctFmt(Math.abs(pct))}</div>` : '';
-    return `<article class="card" data-frow="${esc(feedKey(f))}"><div class="rw feed">
+    return `<article class="card f-${k}" data-frow="${esc(feedKey(f))}"><div class="rw feed">
       <div class="fi ${k}">${k === 'tg' ? ICON.target : k === 'up' ? ICON.up : ICON.down}</div>
       <div class="mid"><div class="title">${esc(f.title)}</div>
         <div class="meta">${label[f.kind] || 'Değişti'} · ${when(f.t)}</div>
