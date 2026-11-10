@@ -210,7 +210,15 @@ dialog .row.end button:not(.ghost){flex:2}
 .mid .meta{display:flex;flex-wrap:wrap;gap:3px 5px;align-items:center;white-space:normal;overflow:visible}
 .mid .meta .tag,.mid .meta .unit{margin-right:0}
 .gcheap{white-space:normal}
-.mk{display:inline-block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ink);background:rgba(128,128,128,.2);border-radius:6px;padding:1px 6px;vertical-align:1px}
+.mk{display:inline-block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--ink);background:rgba(128,128,128,.22);border:1px solid transparent;border-radius:20px;padding:1px 9px;vertical-align:1px}
+.mk.bim{background:#D32F2F;color:#fff}
+.mk.a101{background:#8FD3FF;color:#0B3A5B}
+.mk.sok{background:#FFD500;color:#2B2200}
+.mk.tarim{background:#2E9E4F;color:#fff}
+.mk.migros{background:#FF7A00;color:#fff}
+.mk.carrefour{background:#fff;color:#D32F2F;border-color:#e0dede}
+.group .ghead{background:rgba(var(--gc-rgb),.5);border-bottom-color:rgba(var(--gc-rgb),.6)}
+.group .gsub{background:color-mix(in srgb,var(--card) 65%,transparent)}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -325,15 +333,16 @@ dialog .row.end button:not(.ghost){flex:2}
 'use strict';
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const mk = (m) => `<span class="mk">${esc(m)}</span>`;
+const mkCls = (m) => { const n = String(m || '').toLocaleLowerCase('tr'); return /(^|\s)bim(\s|$)/.test(n) ? 'bim' : /a101/.test(n) ? 'a101' : /^(şok|sok)(\s|$)/.test(n) ? 'sok' : /tar[ıi]m/.test(n) ? 'tarim' : /migros/.test(n) ? 'migros' : /carrefour/.test(n) ? 'carrefour' : ''; };
+const mk = (m) => `<span class="mk ${mkCls(m)}">${esc(m)}</span>`;
 const tl = (n) => Number(n).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
 const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.7.1', APP_DATE = '10 Kas 2026';
-// Grup renkleri (fiyat düşüş/artış renkleri olan yeşil ve kırmızıyla karışmasın diye onlar yok)
-const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri']];
+const APP_VERSION = '1.7.2', APP_DATE = '10 Kas 2026';
+// Grup renkleri (20 renk)
+const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri'], ['#FF3B30', 'Kırmızı'], ['#FF7F6B', 'Mercan'], ['#34C759', 'Yeşil'], ['#5EE6B5', 'Nane'], ['#8FA31E', 'Zeytin'], ['#C6E22E', 'Limon'], ['#14B8A6', 'Turkuaz'], ['#38BDF8', 'Gökmavisi'], ['#1E3A8A', 'Lacivert'], ['#A78BFA', 'Lavanta'], ['#C2185B', 'Vişne'], ['#A1724E', 'Kahve']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
 const LEGACY = { '#2F6FED': '#2979FF', '#1B9AAA': '#00D4E8', '#E39B0B': '#FFC400', '#E8590C': '#FF6D00', '#C2418F': '#FF2D95', '#7C4DDB': '#B14DFF', '#64748B': '#8A94A6', '#8A6A3B': '#5B6CFF' };
 const THEMES = [{ n: 'Yeşil', a: '#1D9E75', b: '#085041' }, { n: 'Mavi', a: '#3b82f6', b: '#1e3a8a' }, { n: 'Mor', a: '#8b5cf6', b: '#4c1d95' }, { n: 'Turuncu', a: '#f97316', b: '#9a3412' }, { n: 'Pembe', a: '#ec4899', b: '#831843' }, { n: 'Turkuaz', a: '#14b8a6', b: '#134e4a' }, { n: 'Antrasit', a: '#64748b', b: '#0f172a' }];
