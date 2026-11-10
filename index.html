@@ -216,6 +216,24 @@ dialog .row.end button:not(.ghost){flex:2}
 .mk.sok{background:#FFD500;color:#2B2200}
 .mk.tarim{background:#2E9E4F;color:#fff}
 .mk.migros{background:#FF7A00;color:#fff}
+.mk.hakmar{background:#fff;color:#1E8E3E;border-color:#e0dede}
+.group .gbtn{width:26px}
+.group .ghead{padding-left:10px;padding-right:4px}
+.group .gsub{font-size:10.5px;padding:1px 7px}
+.group .gname{letter-spacing:-.02em}
+.gbest{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;flex:none}
+.gbest b{color:var(--ink);font-weight:800}
+.group .gsub{flex:none}
+.group .ghead{padding-bottom:6px}
+.group .gcheap{display:flex;align-items:center;gap:6px;white-space:nowrap;padding:3px 14px 4px;line-height:1.2;font-size:12px}
+.group .gcheap .gct{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--ink);font-weight:600}
+.group .gcheap .mk{flex:none;font-size:10px;padding:0 8px}
+.gacts{margin-left:auto;display:flex;flex:none}
+.group .gcheap .gbtn{width:30px;height:24px;min-height:24px}
+.group .gcheap{padding:1px 4px 1px 14px}
+.group .ghead{padding-right:10px}
+.group .gname{flex:0 1 auto}
+.group .ghead h3{flex:1 1 auto}
 .mk.carrefour{background:#fff;color:#D32F2F;border-color:#e0dede}
 .group .ghead{background:rgba(var(--gc-rgb),.16);border-bottom-color:rgba(var(--gc-rgb),.35)}
 @media(prefers-color-scheme:dark){.group .ghead{background:rgba(var(--gc-rgb),.22)}}
@@ -334,14 +352,14 @@ dialog .row.end button:not(.ghost){flex:2}
 'use strict';
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const mkCls = (m) => { const n = String(m || '').toLocaleLowerCase('tr'); return /(^|\s)bim(\s|$)/.test(n) ? 'bim' : /a101/.test(n) ? 'a101' : /^(şok|sok)(\s|$)/.test(n) ? 'sok' : /tar[ıi]m/.test(n) ? 'tarim' : /migros/.test(n) ? 'migros' : /carrefour/.test(n) ? 'carrefour' : ''; };
+const mkCls = (m) => { const n = String(m || '').toLocaleLowerCase('tr'); return /hakmar/.test(n) ? 'hakmar' : /(^|\s)bim(\s|$)/.test(n) ? 'bim' : /a101/.test(n) ? 'a101' : /^(şok|sok)(\s|$)/.test(n) ? 'sok' : /tar[ıi]m/.test(n) ? 'tarim' : /migros/.test(n) ? 'migros' : /carrefour/.test(n) ? 'carrefour' : ''; };
 const mk = (m) => `<span class="mk ${mkCls(m)}">${esc(m)}</span>`;
 const tl = (n) => Number(n).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
 const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.7.3', APP_DATE = '10 Kas 2026';
+const APP_VERSION = '1.7.4', APP_DATE = '10 Kas 2026';
 // Grup renkleri (20 renk)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri'], ['#FF3B30', 'Kırmızı'], ['#FF7F6B', 'Mercan'], ['#34C759', 'Yeşil'], ['#5EE6B5', 'Nane'], ['#8FA31E', 'Zeytin'], ['#C6E22E', 'Limon'], ['#14B8A6', 'Turkuaz'], ['#38BDF8', 'Gökmavisi'], ['#1E3A8A', 'Lacivert'], ['#A78BFA', 'Lavanta'], ['#C2185B', 'Vişne'], ['#A1724E', 'Kahve']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
@@ -813,8 +831,11 @@ function groupHTML(g, items, i, n) {
     return `<section class="group sheet reorder" style="${style}"><div class="ghead" style="cursor:default"><h3><span class="gname">${esc(g.name)}</span><span class="gsub">${items.length} ürün</span></h3><button class="gbtn" data-gup="${esc(g.id)}" ${i === 0 ? 'disabled' : ''} aria-label="Yukarı taşı">${ICON.up}</button><button class="gbtn" data-gdown="${esc(g.id)}" ${i === n - 1 ? 'disabled' : ''} aria-label="Aşağı taşı">${ICON.down}</button></div></section>`;
   }
   const first = items[0]?.last ? items[0] : null;
-  const head = `<div class="ghead" data-gtoggle="${esc(g.id)}"><h3>${ICON.chev}<span class="gname">${esc(g.name)}</span><span class="gsub">${items.length} ürün</span></h3><button class="gbtn" data-gedit="${esc(g.id)}" aria-label="Grubu düzenle">${ICON.edit}</button><button class="gbtn" data-gdel="${esc(g.id)}" aria-label="Grubu sil">${ICON.trash}</button></div>`;
-  const sub = first && items.length > 1 ? `<div class="gcheap">En ucuz: <b>${unitInfo(first) ? unitLabel(unitInfo(first)) : tl(first.last.price)}</b> · ${esc(first.title)} · ${mk(first.last.market)}</div>` : '';
+  const bestU = first && items.length > 1 ? unitInfo(first) : null;
+  const best = first && items.length > 1 ? `<span class="gbest">En ucuz: <b>${bestU ? tl(bestU.per) + '/' + bestU.kind : tl(first.last.price)}</b></span>` : '';
+  const head = `<div class="ghead" data-gtoggle="${esc(g.id)}"><h3>${ICON.chev}<span class="gname">${esc(g.name)}</span><span class="gsub">${items.length} ürün</span>${best}</h3></div>`;
+  const acts = `<span class="gacts"><button class="gbtn" data-gedit="${esc(g.id)}" aria-label="Grubu düzenle">${ICON.edit}</button><button class="gbtn" data-gdel="${esc(g.id)}" aria-label="Grubu sil">${ICON.trash}</button></span>`;
+  const sub = `<div class="gcheap">${first ? `<span class="gct">${esc(first.title)}</span>${first.last.market ? mk(first.last.market) : ''}` : '<span class="gct muted">Ürün yok</span>'}${acts}</div>`;
   const body = g.collapsed ? '' : items.length
     ? items.map((w, k) => cardHTML(w, items.length > 1 && k === 0)).join('')
     : '<div class="gempty">Bu grupta ürün yok. Bir ürünün "Düzenle" düğmesinden bu gruba taşıyabilirsin.</div>';
