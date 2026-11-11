@@ -236,6 +236,20 @@ dialog .row.end button:not(.ghost){flex:2}
 .group .ghead{padding-right:10px}
 .group .gname{flex:0 1 auto}
 .group .ghead h3{flex:1 1 auto}
+.filters{display:grid;gap:8px;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 12px;margin:0 0 10px}
+.fchips{display:flex;gap:6px;overflow-x:auto;padding:1px 1px 3px;scrollbar-width:none}
+.fchips::-webkit-scrollbar{display:none}
+.fchips button.mk{flex:none;cursor:pointer;min-height:28px;padding:2px 11px;opacity:.5;font-family:inherit}
+.fchips button.mk.on{opacity:1;box-shadow:0 0 0 2px var(--tc)}
+.frow{display:grid;grid-template-columns:1fr 1fr 1.7fr;gap:6px}
+.frow input,.frow select{min-height:38px;padding:6px 10px;font-size:14px;width:100%;background:var(--bg)}
+.fnote{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);min-height:18px}
+.linkbtn{background:none;border:0;min-height:0;padding:0;color:var(--tc);font-weight:700;font-size:12px}
+#results{--gc-rgb:120,134,150}
+#results .prev{white-space:normal;display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center;overflow:visible}
+#results .op{white-space:nowrap;margin-right:6px;font-size:12px}
+#results .op .mk{font-size:9.5px;padding:0 6px}
+#results .prev{display:block;line-height:1.7}
 .mk.carrefour{background:#fff;color:#D32F2F;border-color:#e0dede}
 .group .ghead{background:rgba(var(--gc-rgb),.16);border-bottom-color:rgba(var(--gc-rgb),.35)}
 @media(prefers-color-scheme:dark){.group .ghead{background:rgba(var(--gc-rgb),.22)}}
@@ -253,6 +267,15 @@ dialog .row.end button:not(.ghost){flex:2}
       <button type="submit">Ara</button>
     </form>
     <div id="search-msg" class="msg"></div>
+    <div id="filters" class="filters" hidden>
+      <div id="f-markets" class="fchips"></div>
+      <div class="frow">
+        <input id="f-min" type="text" inputmode="decimal" placeholder="En az ₺" aria-label="En düşük fiyat" autocomplete="off">
+        <input id="f-max" type="text" inputmode="decimal" placeholder="En çok ₺" aria-label="En yüksek fiyat" autocomplete="off">
+        <select id="f-sort" aria-label="Sıralama"><option value="rel">Önerilen sıra</option><option value="p-asc">Fiyat ↑ (ucuzdan)</option><option value="p-desc">Fiyat ↓ (pahalıdan)</option><option value="u-asc">Birim fiyat ↑</option></select>
+      </div>
+      <div class="fnote"><span id="f-count"></span><button type="button" id="f-clear" class="linkbtn" hidden>Filtreyi temizle</button></div>
+    </div>
     <div id="results" class="sheet"></div>
     <div id="pager" class="pager"></div>
   </section>
@@ -361,7 +384,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.7.5', APP_DATE = '10 Kas 2026';
+const APP_VERSION = '1.8.0', APP_DATE = '10 Kas 2026';
 // Grup renkleri (20 renk)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri'], ['#FF3B30', 'Kırmızı'], ['#FF7F6B', 'Mercan'], ['#34C759', 'Yeşil'], ['#5EE6B5', 'Nane'], ['#8FA31E', 'Zeytin'], ['#C6E22E', 'Limon'], ['#14B8A6', 'Turkuaz'], ['#38BDF8', 'Gökmavisi'], ['#1E3A8A', 'Lacivert'], ['#A78BFA', 'Lavanta'], ['#C2185B', 'Vişne'], ['#A1724E', 'Kahve']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
@@ -663,10 +686,38 @@ document.addEventListener('click', (e) => { const b = e.target.closest('[data-cl
 
 // Arama
 let lastResults = [], lastQuery = '', lastPage = 0;
+const filt = { markets: new Set(), min: '', max: '', sort: 'rel' };
+const numOf = (v) => { const n = parseFloat(String(v).replace(',', '.')); return Number.isFinite(n) ? n : null; };
+const filtActive = () => filt.markets.size > 0 || numOf(filt.min) != null || numOf(filt.max) != null || filt.sort !== 'rel';
+function renderFilters() {
+  const box = $('#filters');
+  if (!lastResults.length) { box.hidden = true; return; }
+  box.hidden = false;
+  const cnt = new Map();
+  lastResults.forEach((p) => new Set(p.offers.map((o) => o.market)).forEach((m) => cnt.set(m, (cnt.get(m) || 0) + 1)));
+  [...filt.markets].forEach((m) => { if (!cnt.has(m)) filt.markets.delete(m); });
+  const names = [...cnt.keys()].sort((a, b) => cnt.get(b) - cnt.get(a) || a.localeCompare(b, 'tr'));
+  $('#f-markets').innerHTML = `<button type="button" class="mk${filt.markets.size ? '' : ' on'}" data-fm="">Tümü</button>` +
+    names.map((m) => `<button type="button" class="mk ${mkCls(m)}${filt.markets.has(m) ? ' on' : ''}" data-fm="${esc(m)}">${esc(m)}</button>`).join('');
+}
+$('#f-markets').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-fm]'); if (!b) return;
+  const m = b.dataset.fm;
+  if (!m) filt.markets.clear(); else if (filt.markets.has(m)) filt.markets.delete(m); else filt.markets.add(m);
+  renderFilters(); renderResults();
+});
+$('#f-min').addEventListener('input', (e) => { filt.min = e.target.value; renderResults(); });
+$('#f-max').addEventListener('input', (e) => { filt.max = e.target.value; renderResults(); });
+$('#f-sort').addEventListener('change', (e) => { filt.sort = e.target.value; renderResults(); });
+$('#f-clear').addEventListener('click', () => {
+  filt.markets.clear(); filt.min = filt.max = ''; filt.sort = 'rel';
+  $('#f-min').value = $('#f-max').value = ''; $('#f-sort').value = 'rel';
+  renderFilters(); renderResults();
+});
 async function runSearch(q, page) {
   const msg = $('#search-msg');
   setMsg(msg, 'Aranıyor…');
-  $('#results').innerHTML = ''; $('#pager').innerHTML = '';
+  $('#results').innerHTML = ''; $('#pager').innerHTML = ''; $('#filters').hidden = true;
   try {
     const res = await search({ keywords: q, pages: page });
     lastResults = res; lastQuery = q; lastPage = page;
@@ -674,7 +725,7 @@ async function runSearch(q, page) {
     setMsg(msg, res.length
       ? `Sayfa ${page + 1}${pages ? ' / ' + pages : ''} · ${res.length} ürün${res.total ? ` (toplam ${res.total})` : ''}`
       : (page > 0 ? 'Bu sayfada sonuç yok' : 'Sonuç bulunamadı'));
-    renderResults(); renderPager(res.total, res.length);
+    renderFilters(); renderResults(); renderPager(res.total, res.length);
     if (page > 0) window.scrollTo({ top: 0 });
   } catch (err) { setMsg(msg, err.message, true); }
 }
@@ -696,20 +747,33 @@ $('#pager').addEventListener('click', (e) => {
 $('#search-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const q = $('#q').value.trim();
-  if (q.length >= 2) runSearch(q, 0);
+  if (q.length >= 2) { filt.markets.clear(); runSearch(q, 0); }
 });
 function renderResults() {
   const watching = new Set(db.watch.map((w) => w.id));
-  $('#results').innerHTML = lastResults.map((p, i) => {
-    const others = p.offers.slice(1, 4).map((o) => `${mk(o.market)} ${tl(o.price)}`).join(' · ');
+  const lo = numOf(filt.min), hi = numOf(filt.max);
+  let view = [];
+  lastResults.forEach((p, i) => {
+    const offers = p.offers.filter((o) => (!filt.markets.size || filt.markets.has(o.market)) && (lo == null || o.price >= lo) && (hi == null || o.price <= hi));
+    if (offers.length) view.push({ i, p, offers, best: offers[0], title: p.title, last: { price: offers[0].price } });
+  });
+  if (filt.sort === 'p-asc') view.sort((a, b) => a.best.price - b.best.price);
+  else if (filt.sort === 'p-desc') view.sort((a, b) => b.best.price - a.best.price);
+  else if (filt.sort === 'u-asc') view = sortItems(view);
+  $('#f-count').textContent = lastResults.length ? `${view.length} / ${lastResults.length} ürün gösteriliyor (bu sayfa)` : '';
+  $('#f-clear').hidden = !filtActive();
+  if (!view.length && lastResults.length) { $('#results').innerHTML = '<div class="gempty">Filtreye uyan ürün yok. Filtreyi gevşetmeyi dene.</div>'; return; }
+  $('#results').innerHTML = view.map(({ i, p, offers, best }) => {
+    const others = offers.slice(1, 4).map((o) => `<span class="op">${mk(o.market)} ${tl(o.price)}</span>`).join('');
+    const u = unitInfo({ title: p.title, last: { price: best.price } });
     return `
     <article class="card"><div class="rw">${thumb(p.imageUrl, p.title)}
       <div class="mid">
         <div class="title">${esc(p.title)}</div>
-        <div class="meta">${mk(p.best.market)}${p.brand ? ' · ' + esc(p.brand) : ''}</div>
+        <div class="meta">${mk(best.market)}${u ? `<span class="unit">${unitLabel(u)}</span>` : ''}${p.brand ? esc(p.brand) : ''}</div>
         ${others ? `<div class="prev">${others}</div>` : ''}
       </div>
-      <div class="side">${priceHTML(p.best.price)}${watching.has(p.id) ? '<button class="ghost sm" disabled>Takipte</button>' : `<button class="sm add" data-add="${i}">Takibe al</button>`}</div>
+      <div class="side">${priceHTML(best.price)}${watching.has(p.id) ? '<button class="ghost sm" disabled>Takipte</button>' : `<button class="sm add" data-add="${i}">Takibe al</button>`}</div>
     </div></article>`;
   }).join('');
 }
