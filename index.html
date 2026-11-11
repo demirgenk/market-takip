@@ -250,6 +250,7 @@ dialog .row.end button:not(.ghost){flex:2}
 #results .op{white-space:nowrap;margin-right:6px;font-size:12px}
 #results .op .mk{font-size:9.5px;padding:0 6px}
 #results .prev{display:block;line-height:1.7}
+.pager .wide{flex:1 0 100%;margin-top:4px}
 .mk.carrefour{background:#fff;color:#D32F2F;border-color:#e0dede}
 .group .ghead{background:rgba(var(--gc-rgb),.16);border-bottom-color:rgba(var(--gc-rgb),.35)}
 @media(prefers-color-scheme:dark){.group .ghead{background:rgba(var(--gc-rgb),.22)}}
@@ -384,7 +385,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.8.0', APP_DATE = '10 Kas 2026';
+const APP_VERSION = '1.8.1', APP_DATE = '10 Kas 2026';
 // Grup renkleri (20 renk)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri'], ['#FF3B30', 'Kırmızı'], ['#FF7F6B', 'Mercan'], ['#34C759', 'Yeşil'], ['#5EE6B5', 'Nane'], ['#8FA31E', 'Zeytin'], ['#C6E22E', 'Limon'], ['#14B8A6', 'Turkuaz'], ['#38BDF8', 'Gökmavisi'], ['#1E3A8A', 'Lacivert'], ['#A78BFA', 'Lavanta'], ['#C2185B', 'Vişne'], ['#A1724E', 'Kahve']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
@@ -685,7 +686,8 @@ function askGroup(title, { name = '', color } = {}) {
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-close]'); if (b) b.closest('dialog').close('cancel'); });
 
 // Arama
-let lastResults = [], lastQuery = '', lastPage = 0;
+let lastResults = [], lastQuery = '', lastPage = 0, allMode = false, searchTok = 0;
+const MAX_ALL_PAGES = 20;
 const filt = { markets: new Set(), min: '', max: '', sort: 'rel' };
 const numOf = (v) => { const n = parseFloat(String(v).replace(',', '.')); return Number.isFinite(n) ? n : null; };
 const filtActive = () => filt.markets.size > 0 || numOf(filt.min) != null || numOf(filt.max) != null || filt.sort !== 'rel';
@@ -715,11 +717,13 @@ $('#f-clear').addEventListener('click', () => {
   renderFilters(); renderResults();
 });
 async function runSearch(q, page) {
+  const tok = ++searchTok; allMode = false;
   const msg = $('#search-msg');
   setMsg(msg, 'Aranıyor…');
   $('#results').innerHTML = ''; $('#pager').innerHTML = ''; $('#filters').hidden = true;
   try {
     const res = await search({ keywords: q, pages: page });
+    if (tok !== searchTok) return;
     lastResults = res; lastQuery = q; lastPage = page;
     const pages = res.total ? Math.ceil(res.total / PAGE_SIZE) : null;
     setMsg(msg, res.length
@@ -732,17 +736,43 @@ async function runSearch(q, page) {
 function renderPager(total, count) {
   const pages = total ? Math.ceil(total / PAGE_SIZE) : null, cur = lastPage;
   const hasNext = pages ? cur + 1 < pages : count > 0;
+  if (allMode) { $('#pager').innerHTML = `<button class="ghost wide" data-back>‹ Sayfa sayfa göster</button>`; return; }
   if (cur === 0 && !hasNext) { $('#pager').innerHTML = ''; return; }
   let nums = [cur];
   if (pages) { const from = Math.max(0, Math.min(cur - 2, pages - 5)); nums = Array.from({ length: Math.min(5, pages) }, (_, k) => from + k); }
   $('#pager').innerHTML =
     `<button class="ghost" data-page="${cur - 1}" ${cur === 0 ? 'disabled' : ''} aria-label="Önceki sayfa">‹</button>` +
     nums.map((i) => `<button class="${i === cur ? '' : 'ghost'}" data-page="${i}" ${i === cur ? 'aria-current="page"' : ''}>${i + 1}</button>`).join('') +
-    `<button class="ghost" data-page="${cur + 1}" ${hasNext ? '' : 'disabled'} aria-label="Sonraki sayfa">›</button>`;
+    `<button class="ghost" data-page="${cur + 1}" ${hasNext ? '' : 'disabled'} aria-label="Sonraki sayfa">›</button>` +
+    `<button class="wide" data-all>Tüm sayfaları getir${pages ? ` (${Math.min(pages, MAX_ALL_PAGES)} sayfa)` : ''}</button>`;
+}
+async function fetchAll() {
+  const q = lastQuery, msg = $('#search-msg'), tok = ++searchTok;
+  const total = lastResults.total, pages = Math.min(total ? Math.ceil(total / PAGE_SIZE) : MAX_ALL_PAGES, MAX_ALL_PAGES);
+  $('#pager').querySelectorAll('button').forEach((b) => { b.disabled = true; });
+  const all = [], seen = new Set();
+  let failed = null;
+  for (let i = 0; i < pages; i++) {
+    setMsg(msg, `Tüm sayfalar getiriliyor… ${i + 1} / ${pages}`);
+    let r;
+    try { r = await search({ keywords: q, pages: i }); }
+    catch (err) { failed = `${i + 1}. sayfada durdu: ${err.message}`; break; }
+    if (tok !== searchTok) return;
+    if (!r.length) break;
+    r.forEach((p) => { if (!seen.has(p.id)) { seen.add(p.id); all.push(p); } });
+    if (r.length < PAGE_SIZE) break;
+  }
+  if (tok !== searchTok) return;
+  if (!all.length) { setMsg(msg, failed || 'Sonuç bulunamadı', true); renderPager(total, lastResults.length); return; }
+  all.total = all.length; lastResults = all; allMode = true;
+  setMsg(msg, failed ? `${all.length} ürün getirildi · ${failed}` : `Tüm sayfalar: ${all.length} ürün`, !!failed);
+  renderFilters(); renderResults(); renderPager(all.total, all.length);
 }
 $('#pager').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-page]');
-  if (b && !b.disabled) runSearch(lastQuery, Number(b.dataset.page));
+  const all = e.target.closest('[data-all]'), back = e.target.closest('[data-back]'), b = e.target.closest('[data-page]');
+  if (all && !all.disabled) fetchAll();
+  else if (back) runSearch(lastQuery, 0);
+  else if (b && !b.disabled) runSearch(lastQuery, Number(b.dataset.page));
 });
 $('#search-form').addEventListener('submit', (e) => {
   e.preventDefault();
@@ -760,7 +790,7 @@ function renderResults() {
   if (filt.sort === 'p-asc') view.sort((a, b) => a.best.price - b.best.price);
   else if (filt.sort === 'p-desc') view.sort((a, b) => b.best.price - a.best.price);
   else if (filt.sort === 'u-asc') view = sortItems(view);
-  $('#f-count').textContent = lastResults.length ? `${view.length} / ${lastResults.length} ürün gösteriliyor (bu sayfa)` : '';
+  $('#f-count').textContent = lastResults.length ? `${view.length} / ${lastResults.length} ürün gösteriliyor (${allMode ? 'tüm sayfalar' : 'bu sayfa'})` : '';
   $('#f-clear').hidden = !filtActive();
   if (!view.length && lastResults.length) { $('#results').innerHTML = '<div class="gempty">Filtreye uyan ürün yok. Filtreyi gevşetmeyi dene.</div>'; return; }
   $('#results').innerHTML = view.map(({ i, p, offers, best }) => {
