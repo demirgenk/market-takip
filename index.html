@@ -389,7 +389,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.9.0', APP_DATE = '10 Kas 2026';
+const APP_VERSION = '1.9.1', APP_DATE = '10 Kas 2026';
 // Grup renkleri (20 renk)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri'], ['#FF3B30', 'Kırmızı'], ['#FF7F6B', 'Mercan'], ['#34C759', 'Yeşil'], ['#5EE6B5', 'Nane'], ['#8FA31E', 'Zeytin'], ['#C6E22E', 'Limon'], ['#14B8A6', 'Turkuaz'], ['#38BDF8', 'Gökmavisi'], ['#1E3A8A', 'Lacivert'], ['#A78BFA', 'Lavanta'], ['#C2185B', 'Vişne'], ['#A1724E', 'Kahve']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
@@ -714,7 +714,7 @@ function askGroup(title, { name = '', color } = {}) {
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-close]'); if (b) b.closest('dialog').close('cancel'); });
 
 // Arama
-let lastResults = [], lastQuery = '', lastPage = 0, allMode = false, searchTok = 0;
+let lastResults = [], lastQuery = '', lastPage = 0, allMode = false, searchTok = 0, fetching = false, autoT = 0;
 const MAX_ALL_PAGES = 20;
 const filt = { markets: new Set(), min: '', max: '', sort: 'rel' };
 const numOf = (v) => { const n = parseFloat(String(v).replace(',', '.')); return Number.isFinite(n) ? n : null; };
@@ -734,11 +734,12 @@ $('#f-markets').addEventListener('click', (e) => {
   const b = e.target.closest('[data-fm]'); if (!b) return;
   const m = b.dataset.fm;
   if (!m) filt.markets.clear(); else if (filt.markets.has(m)) filt.markets.delete(m); else filt.markets.add(m);
-  renderFilters(); renderResults();
+  renderFilters(); renderResults(); autoAll();
 });
-$('#f-min').addEventListener('input', (e) => { filt.min = e.target.value; renderResults(); });
-$('#f-max').addEventListener('input', (e) => { filt.max = e.target.value; renderResults(); });
-$('#f-sort').addEventListener('change', (e) => { filt.sort = e.target.value; renderResults(); });
+const later = () => { clearTimeout(autoT); autoT = setTimeout(autoAll, 700); };
+$('#f-min').addEventListener('input', (e) => { filt.min = e.target.value; renderResults(); later(); });
+$('#f-max').addEventListener('input', (e) => { filt.max = e.target.value; renderResults(); later(); });
+$('#f-sort').addEventListener('change', (e) => { filt.sort = e.target.value; renderResults(); autoAll(); });
 $('#f-clear').addEventListener('click', () => {
   filt.markets.clear(); filt.min = filt.max = ''; filt.sort = 'rel';
   $('#f-min').value = $('#f-max').value = ''; $('#f-sort').value = 'rel';
@@ -775,6 +776,16 @@ function renderPager(total, count) {
     `<button class="wide" data-all>Tüm sayfaları getir${pages ? ` (${Math.min(pages, MAX_ALL_PAGES)} sayfa)` : ''}</button>`;
 }
 async function fetchAll() {
+  if (fetching) return;
+  fetching = true;
+  try { await fetchAllRun(); } finally { fetching = false; }
+}
+// Filtre/sıralama açıkken tüm sayfalar kendiliğinden getirilir
+function autoAll() {
+  const pages = lastResults.total ? Math.ceil(lastResults.total / PAGE_SIZE) : (lastResults.length >= PAGE_SIZE ? 2 : 1);
+  if (!allMode && !fetching && lastResults.length && pages > 1 && filtActive()) fetchAll();
+}
+async function fetchAllRun() {
   const q = lastQuery, msg = $('#search-msg'), tok = ++searchTok;
   const total = lastResults.total, pages = Math.min(total ? Math.ceil(total / PAGE_SIZE) : MAX_ALL_PAGES, MAX_ALL_PAGES);
   $('#pager').querySelectorAll('button').forEach((b) => { b.disabled = true; });
@@ -805,7 +816,7 @@ $('#pager').addEventListener('click', (e) => {
 $('#search-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const q = $('#q').value.trim();
-  if (q.length >= 2) { filt.markets.clear(); runSearch(q, 0); }
+  if (q.length >= 2) { filt.markets.clear(); runSearch(q, 0).then(autoAll); }
 });
 function renderResults() {
   const watching = new Set(db.watch.map((w) => w.id));
