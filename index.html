@@ -297,6 +297,10 @@ dialog .row.end button:not(.ghost){flex:2}
     <form id="settings-form" class="panel form">
       <h2>Konum</h2>
       <p class="muted small">Fiyatlar şubeye göre değişir. Konumunu gir, yakınındaki şubelerin fiyatları takip edilir.</p>
+      <label>Arama kapsamı
+        <select name="scope"><option value="near">Konumuma yakın şubeler</option><option value="all">Türkiye geneli (deneysel, konum gerekmez)</option></select>
+      </label>
+      <p class="muted small">Türkiye geneli seçilirse konum bilgisi gönderilmez; fiyatlar tüm şubelerden gelir. Çalışıp çalışmadığını "Bağlantıyı test et" ile görebilirsin.</p>
       <div class="grid2">
         <label>Enlem<input name="lat" inputmode="decimal" placeholder="41.0082"></label>
         <label>Boylam<input name="lon" inputmode="decimal" placeholder="28.9784"></label>
@@ -385,7 +389,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.8.1', APP_DATE = '10 Kas 2026';
+const APP_VERSION = '1.9.0', APP_DATE = '10 Kas 2026';
 // Grup renkleri (20 renk)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri'], ['#FF3B30', 'Kırmızı'], ['#FF7F6B', 'Mercan'], ['#34C759', 'Yeşil'], ['#5EE6B5', 'Nane'], ['#8FA31E', 'Zeytin'], ['#C6E22E', 'Limon'], ['#14B8A6', 'Turkuaz'], ['#38BDF8', 'Gökmavisi'], ['#1E3A8A', 'Lacivert'], ['#A78BFA', 'Lavanta'], ['#C2185B', 'Vişne'], ['#A1724E', 'Kahve']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
@@ -403,7 +407,7 @@ const gcStyle = (hex) => { const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.s
 // ---------- Veri: localStorage içinde tek JSON ----------
 const KEY = 'market-takip-v1';
 const DEFAULT = {
-  config: { lat: null, lon: null, distance: 3, ntfyTopic: '', intervalHours: 6, minDropPercent: 5, notifyRise: true, lastGroup: null, demo: false, proxy: '' },
+  config: { scope: 'near', natStrat: '', lat: null, lon: null, distance: 3, ntfyTopic: '', intervalHours: 6, minDropPercent: 5, notifyRise: true, lastGroup: null, demo: false, proxy: '' },
   watch: [], groups: [], feed: [], lastRun: null,
 };
 const merge = (j) => {
@@ -444,8 +448,8 @@ async function apiPost(path, body) {
   return res.json();
 }
 const depotCache = new Map();
-async function nearestDepots() {
-  const { lat, lon, distance } = db.config;
+async function nearestDepots(c = db.config) {
+  const { lat, lon, distance } = c;
   if (lat == null || lon == null) throw new Error('Önce Ayarlar bölümünden konumunu gir.');
   const key = `${lat},${lon},${distance}`;
   const hit = depotCache.get(key);
@@ -464,10 +468,34 @@ function normalize(item) {
     .filter((o) => Number.isFinite(o.price)).sort((a, b) => a.price - b.price);
   return { id: String(item.id), title: item.title, brand: item.brand || '', imageUrl: item.imageUrl || '', offers, best: offers[0] || null };
 }
+// Türkiye geneli (konumsuz) arama: kaynak bunu belgelemiyor, bu yüzden sırayla birkaç yöntem denenir
+const NAT = {
+  none: (body) => apiPost('/search', { pages: 0, size: PAGE_SIZE, ...body }),
+  turkey: async (body) => {
+    const c = { lat: 39, lon: 35, distance: 2500 };
+    const depots = await nearestDepots(c);
+    return apiPost('/search', { pages: 0, size: PAGE_SIZE, latitude: c.lat, longitude: c.lon, distance: c.distance, depots, ...body });
+  },
+};
+async function natSearch(body) {
+  const known = db.config.natStrat;
+  const order = known && NAT[known] ? [known] : Object.keys(NAT);
+  let lastErr = null;
+  for (const k of order) {
+    try {
+      const out = parseSearch(await NAT[k](body));
+      if (out.length || known === k || (body.pages || 0) > 0) { if (db.config.natStrat !== k && out.length) { db.config.natStrat = k; save(); } return out; }
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('Türkiye geneli arama bu kaynakta sonuç vermedi. Ayarlar > Arama kapsamı\'nı "Konumuma yakın şubeler" yapıp konum gir.');
+}
 async function realSearch(body) {
+  if (db.config.scope === 'all') return natSearch(body);
   const depots = await nearestDepots();
   const { lat, lon, distance } = db.config;
-  const data = await apiPost('/search', { pages: 0, size: PAGE_SIZE, latitude: lat, longitude: lon, distance, depots, ...body });
+  return parseSearch(await apiPost('/search', { pages: 0, size: PAGE_SIZE, latitude: lat, longitude: lon, distance, depots, ...body }));
+}
+function parseSearch(data) {
   const out = (Array.isArray(data) ? data : data.content || data.data || []).map(normalize).filter((p) => p.best);
   // Toplam ürün sayısı yanıtta varsa sayfa numaralarını ona göre çizeriz (alan adı kaynaktan kaynağa değişebilir)
   const total = Number(data.numberOfFound ?? data.totalElements ?? data.totalCount ?? data.total);
@@ -1057,6 +1085,7 @@ const FIELDS = ['lat', 'lon', 'distance', 'intervalHours', 'minDropPercent', 'nt
 function loadSettings() {
   const f = $('#settings-form').elements;
   for (const k of FIELDS) f[k].value = db.config[k] ?? '';
+  f.scope.value = db.config.scope === 'all' ? 'all' : 'near';
   f.demo.checked = !!db.config.demo;
   f.notifyRise.checked = db.config.notifyRise !== false;
 }
@@ -1068,6 +1097,7 @@ $('#settings-form').addEventListener('submit', (e) => {
   c.distance = Math.min(Math.max(num(f.distance.value) || 3, 1), 20);
   c.intervalHours = Math.min(Math.max(num(f.intervalHours.value) || 6, 1), 48);
   c.minDropPercent = Math.min(Math.max(num(f.minDropPercent.value) || 5, 1), 90);
+  const sc = f.scope.value === 'all' ? 'all' : 'near'; if (sc !== c.scope) c.natStrat = ''; c.scope = sc;
   c.ntfyTopic = f.ntfyTopic.value.trim(); c.proxy = f.proxy.value.trim(); c.demo = f.demo.checked; c.notifyRise = f.notifyRise.checked;
   depotCache.clear(); searchCache.clear(); save(); updateDemoBadge();
   setMsg($('#settings-msg'), 'Kaydedildi ✓');
@@ -1113,6 +1143,18 @@ $('#diag').addEventListener('click', async () => {
   };
   log(`Sayfa: ${location.protocol}//${location.host || '(yerel dosya)'} · çevrimiçi: ${navigator.onLine ? 'evet' : 'hayır'} · proxy: ${db.config.proxy ? 'var' : 'yok'} · demo: ${db.config.demo ? 'evet' : 'hayır'}`);
   if (db.config.demo) { log('Demo modu açık, gerçek bağlantı denenmedi.'); btn.disabled = false; return; }
+  if (db.config.scope === 'all') {
+    log('Kapsam: Türkiye geneli (konumsuz). Yöntemler deneniyor…');
+    for (const k of Object.keys(NAT)) {
+      await step(`Yöntem "${k}" — "yumurta 30" araması`, async () => {
+        const r = parseSearch(await NAT[k]({ keywords: 'yumurta 30' }));
+        const a101 = r.filter((p) => p.offers.some((o) => /a101/i.test(o.market))).length;
+        return `${r.length} ürün, ${a101} tanesinde A101 fiyatı var${r.total ? `, toplam ${r.total}` : ''}`;
+      });
+    }
+    log(`Seçili yöntem: ${db.config.natStrat || '(henüz belirlenmedi)'}\n\nBu sonucu bana yapıştırırsan buradan ilerlerim.`);
+    btn.disabled = false; return;
+  }
   if (lat == null || lon == null) { log('✗ Önce konumu kaydet.'); btn.disabled = false; return; }
   let depots = [];
   const ok1 = await step('Yakın şubeler (/nearest)', async () => { depotCache.clear(); depots = await nearestDepots(); return `${depots.length} şube`; });
@@ -1178,7 +1220,7 @@ $('#hdr-ver').textContent = 'v' + APP_VERSION;
 $('#ver').textContent = `${APP_VERSION} (${APP_DATE})`;
 applyTheme(); updateDemoBadge(); refreshCount();
 const start = (location.hash || '').slice(1);
-if (!db.config.demo && (db.config.lat == null || db.config.lon == null)) { show('settings'); setMsg($('#settings-msg'), 'Başlamak için konumunu gir (veya demo modunu aç).'); }
+if (!db.config.demo && db.config.scope !== 'all' && (db.config.lat == null || db.config.lon == null)) { show('settings'); setMsg($('#settings-msg'), 'Başlamak için konumunu gir (veya demo modunu aç).'); }
 else show(['search', 'watch', 'feed', 'settings'].includes(start) ? start : (db.watch.length ? 'watch' : 'search'));
 autoCheck();
 setInterval(autoCheck, 30 * 60e3);
