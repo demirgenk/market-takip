@@ -413,7 +413,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.10.3', APP_DATE = '13 Kas 2026';
+const APP_VERSION = '1.10.4', APP_DATE = '13 Kas 2026';
 // Grup renkleri (20 renk)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri'], ['#FF3B30', 'Kırmızı'], ['#FF7F6B', 'Mercan'], ['#34C759', 'Yeşil'], ['#5EE6B5', 'Nane'], ['#8FA31E', 'Zeytin'], ['#C6E22E', 'Limon'], ['#14B8A6', 'Turkuaz'], ['#38BDF8', 'Gökmavisi'], ['#1E3A8A', 'Lacivert'], ['#A78BFA', 'Lavanta'], ['#C2185B', 'Vişne'], ['#A1724E', 'Kahve']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
@@ -534,14 +534,14 @@ async function natSearch(body) {
   }
   throw lastErr || new Error('Türkiye geneli arama bu kaynakta sonuç vermedi. Ayarlar > Arama kapsamı\'nı "Konumuma yakın şubeler" yapıp konum gir.');
 }
-async function realSearch(body) {
+async function realSearch(body, merge = true) {
   if (db.config.scope === 'all') return natSearch(body);
   const depots = await nearestDepots();
   const { lat, lon, distance } = db.config;
   const near = parseSearch(await apiPost('/search', { pages: 0, size: PAGE_SIZE, latitude: lat, longitude: lon, distance, depots, ...body }));
   // Konumlu arama bazı ürünleri (ör. A101 yumurta 30'lu) sıralamada geriye atabiliyor: konumsuz sonuçlarla birleştirip yalnızca seçili şehrin şubelerindeki teklifleri alıyoruz
   let extra = [];
-  try { extra = parseSearch(await NAT.none(body)); } catch { /* birleştirme isteğe bağlı */ }
+  if (merge) try { extra = parseSearch(await NAT.none(body)); } catch { /* birleştirme isteğe bağlı */ }
   if (!extra.length) return near;
   const set = new Set(depots.map(String)), byId = new Map(near.map((x) => [x.id, x]));
   for (const x of extra) {
@@ -600,7 +600,7 @@ async function lookup(w) {
   // Demo: sahte kaynak kimlikle bulur. Gerçek: ürünü adıyla ara (arama ekranındaki gibi), kimliği eşleşeni al.
   if (db.config.demo) return (await mockSearch({ identity: w.id })).find((p) => p.id === w.id) || null;
   for (let page = 0; page < 3; page++) {
-    const r = await realSearch({ keywords: w.title, pages: page });
+    const r = await realSearch({ keywords: w.title, pages: page }, false); // fiyat kontrolünde birleştirme yok: istek sayısı yarıya iner
     const hit = r.find((p) => p.id === w.id);
     if (hit) return hit;
     if (!r.length || (r.total && (page + 1) * PAGE_SIZE >= r.total)) break;
@@ -657,17 +657,24 @@ async function checkAll(onProgress) {
       try { await nearestDepots(); } catch (e) { res.errors.push(e.message); return res; }
     }
     const queue = db.watch.slice();
-    let done = 0;
+    let done = 0; const retryQ = [];
     const worker = async () => {
       for (let w; (w = queue.shift()); ) {
         try { await checkOne(w, res); }
-        catch (e) { w.lastError = e.message; res.errors.push(`${w.title}: ${e.message}`); }
+        catch (e) { if (e.network) retryQ.push(w); else { w.lastError = e.message; res.errors.push(`${w.title}: ${e.message}`); } }
         done++; save(); // her üründen sonra kaydet: uygulama arka plana geçse de ilerleme kaybolmaz
         if (onProgress) onProgress(done, res.total);
-        if (!db.config.demo) await sleep(300); // siteyi yormamak için
+        if (!db.config.demo) await sleep(500); // siteyi yormamak için
       }
     };
-    await Promise.all(Array.from({ length: db.config.demo ? 1 : 3 }, worker));
+    await Promise.all(Array.from({ length: db.config.demo ? 1 : 2 }, worker));
+    // Ağ hatası alanları (hız sınırı olabilir) biraz bekleyip tek tek yeniden dene
+    if (retryQ.length) await sleep(5000);
+    for (const w of retryQ) {
+      try { await checkOne(w, res); }
+      catch (e) { w.lastError = e.message; res.errors.push(`${w.title}: ${e.message}`); }
+      save(); if (!db.config.demo) await sleep(800);
+    }
     db.feed = db.feed.slice(0, 200);
     db.lastRun = new Date().toISOString();
     save();
