@@ -389,7 +389,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.9.3', APP_DATE = '10 Kas 2026';
+const APP_VERSION = '1.9.4', APP_DATE = '10 Kas 2026';
 // Grup renkleri (20 renk)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri'], ['#FF3B30', 'Kırmızı'], ['#FF7F6B', 'Mercan'], ['#34C759', 'Yeşil'], ['#5EE6B5', 'Nane'], ['#8FA31E', 'Zeytin'], ['#C6E22E', 'Limon'], ['#14B8A6', 'Turkuaz'], ['#38BDF8', 'Gökmavisi'], ['#1E3A8A', 'Lacivert'], ['#A78BFA', 'Lavanta'], ['#C2185B', 'Vişne'], ['#A1724E', 'Kahve']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
@@ -724,11 +724,11 @@ const titleOk = (p) => {
   const toks = queryTokens(lastQuery);
   if (toks.length < 2) return true;
   const hay = fold(p.title + ' ' + (p.brand || ''));
-  return toks.every((t) => /^\d+([.,]\d+)?$/.test(t)
+  return toks.filter((t) => t !== 'adet').every((t) => /^\d+([.,]\d+)?$/.test(t)
     ? new RegExp('(^|[^0-9])' + t.replace(/[.,]/g, '[.,]') + '([^0-9]|$)').test(hay)
     : hay.includes(t));
 };
-// Sunucuya giden arama metni kelime sırasından bağımsız olsun: "yumurta adet 30" ile "yumurta 30 adet" aynı sorguya dönüşür ("yumurta 30 adet")
+// Sunucuya giden arama metni kelime sırasından bağımsız olsun: kelimeler + birim + sayı ("yumurta adet 30") biçimine çevrilir; sunucu en çok bu biçimde sonuç veriyor
 const UNIT_WORDS = new Set(['adet', 'gr', 'g', 'gram', 'kg', 'kilo', 'lt', 'l', 'litre', 'ml', 'cl']);
 function canonQuery(q) {
   const toks = String(q).trim().split(/[\s,;]+/).filter(Boolean);
@@ -736,7 +736,7 @@ function canonQuery(q) {
   const unitI = toks.findIndex((t) => UNIT_WORDS.has(fold(t)));
   if (numI < 0 || unitI < 0) return toks.join(' ');
   const rest = toks.filter((_, i) => i !== numI && i !== unitI);
-  return [...rest, toks[numI], toks[unitI]].join(' ');
+  return [...rest, toks[unitI], toks[numI]].join(' ');
 }
 const numOf = (v) => { const n = parseFloat(String(v).replace(',', '.')); return Number.isFinite(n) ? n : null; };
 const filtActive = () => filt.markets.size > 0 || numOf(filt.min) != null || numOf(filt.max) != null || filt.sort !== 'rel';
