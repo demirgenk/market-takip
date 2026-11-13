@@ -393,7 +393,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.9.6', APP_DATE = '10 Kas 2026';
+const APP_VERSION = '1.9.7', APP_DATE = '10 Kas 2026';
 // Grup renkleri (20 renk)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri'], ['#FF3B30', 'Kırmızı'], ['#FF7F6B', 'Mercan'], ['#34C759', 'Yeşil'], ['#5EE6B5', 'Nane'], ['#8FA31E', 'Zeytin'], ['#C6E22E', 'Limon'], ['#14B8A6', 'Turkuaz'], ['#38BDF8', 'Gökmavisi'], ['#1E3A8A', 'Lacivert'], ['#A78BFA', 'Lavanta'], ['#C2185B', 'Vişne'], ['#A1724E', 'Kahve']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
@@ -452,6 +452,21 @@ async function apiPost(path, body) {
   return res.json();
 }
 const depotCache = new Map();
+const depotIds = async (la, lo, d) => {
+  const data = await apiPost('/nearest', { latitude: la, longitude: lo, distance: d });
+  const list = Array.isArray(data) ? data : data.content || data.data || [];
+  return list.map((x) => x.id ?? x.depotId).filter(Boolean).map(String);
+};
+// Büyük yarıçapta kaynak yakın şubeleri sınırlı sayıda döndürebiliyor; bu yüzden şehri 9 noktadan (merkez + 8 yön) tarayıp şube kimliklerini birleştiriyoruz
+async function wideDepots(c) {
+  const r = c.distance, sub = Math.max(5, Math.round(r / 2)), k = 0.65 * r;
+  const dLat = k / 111, dLon = k / (111 * Math.cos((c.lat * Math.PI) / 180));
+  const pts = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [0.7, 0.7], [0.7, -0.7], [-0.7, 0.7], [-0.7, -0.7]].map(([a, b]) => [c.lat + a * dLat, c.lon + b * dLon]);
+  const res = await Promise.allSettled(pts.map(([la, lo]) => depotIds(la, lo, sub)));
+  const ok = res.filter((x) => x.status === 'fulfilled');
+  if (!ok.length) throw res[0].reason;
+  return [...new Set(ok.flatMap((x) => x.value))];
+}
 async function nearestDepots(c = db.config) {
   const { lat, lon, distance } = c;
   if (lat == null || lon == null) throw new Error('Önce Ayarlar bölümünden konumunu gir.');
@@ -459,9 +474,7 @@ async function nearestDepots(c = db.config) {
   const hit = depotCache.get(key);
   if (hit && Date.now() - hit.at < 24 * 3600e3) return hit.ids;
   // Boş depots verilirse kaynak konumu yok sayıp İstanbul fiyatlarını döndürüyor; önce yakın şubeleri alıyoruz.
-  const data = await apiPost('/nearest', { latitude: lat, longitude: lon, distance });
-  const list = Array.isArray(data) ? data : data.content || data.data || [];
-  const ids = list.map((d) => d.id ?? d.depotId).filter(Boolean).map(String);
+  const ids = distance > 10 ? await wideDepots(c) : await depotIds(lat, lon, distance);
   if (!ids.length) throw new Error('Bu konumun çevresinde şube bulunamadı. Mesafeyi artırmayı dene.');
   depotCache.set(key, { ids, at: Date.now() });
   return ids;
@@ -1213,6 +1226,8 @@ $('#diag').addEventListener('click', async () => {
   const ok1 = await step('Yakın şubeler (/nearest)', async () => { depotCache.clear(); depots = await nearestDepots(); return `${depots.length} şube`; });
   if (ok1) {
     await step('Ürün adıyla arama (/search)', async () => { const r = await realSearch({ keywords: 'süt' }); return `${r.length} ürün`; });
+    await step('Şube sayısı: tek istek 3 / 10 km / ayarlı yarıçap', async () => { const a = await depotIds(lat, lon, 3), b = await depotIds(lat, lon, 10), z = await depotIds(lat, lon, distance); return `${a.length} / ${b.length} / ${z.length} (yarıçap ${distance} km)`; });
+    await step('Birleşik şube sayısı (9 noktadan)', async () => `${depots.length} şube`);
     await step('"yumurta adet 30" — şehir/konum aramasında', async () => { const r = await realSearch({ keywords: 'yumurta adet 30' }); return `${r.length} ürün, ${a101Report(r)}`; });
     await step('"yumurta adet 30" — konumsuz aramada', async () => { const r = parseSearch(await NAT.none({ keywords: 'yumurta adet 30' })); return `${r.length} ürün, ${a101Report(r)}`; });
     const w = db.watch[0];
