@@ -413,7 +413,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.10.0', APP_DATE = '13 Kas 2026';
+const APP_VERSION = '1.10.1', APP_DATE = '13 Kas 2026';
 // Grup renkleri (20 renk)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri'], ['#FF3B30', 'Kırmızı'], ['#FF7F6B', 'Mercan'], ['#34C759', 'Yeşil'], ['#5EE6B5', 'Nane'], ['#8FA31E', 'Zeytin'], ['#C6E22E', 'Limon'], ['#14B8A6', 'Turkuaz'], ['#38BDF8', 'Gökmavisi'], ['#1E3A8A', 'Lacivert'], ['#A78BFA', 'Lavanta'], ['#C2185B', 'Vişne'], ['#A1724E', 'Kahve']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
@@ -531,7 +531,23 @@ async function realSearch(body) {
   if (db.config.scope === 'all') return natSearch(body);
   const depots = await nearestDepots();
   const { lat, lon, distance } = db.config;
-  return parseSearch(await apiPost('/search', { pages: 0, size: PAGE_SIZE, latitude: lat, longitude: lon, distance, depots, ...body }));
+  const near = parseSearch(await apiPost('/search', { pages: 0, size: PAGE_SIZE, latitude: lat, longitude: lon, distance, depots, ...body }));
+  // Konumlu arama bazı ürünleri (ör. A101 yumurta 30'lu) sıralamada geriye atabiliyor: konumsuz sonuçlarla birleştirip yalnızca seçili şehrin şubelerindeki teklifleri alıyoruz
+  let extra = [];
+  try { extra = parseSearch(await NAT.none(body)); } catch { /* birleştirme isteğe bağlı */ }
+  if (!extra.length) return near;
+  const set = new Set(depots.map(String)), byId = new Map(near.map((x) => [x.id, x]));
+  for (const x of extra) {
+    const mine = x.offers.filter((o) => set.has(String(o.depotId)));
+    if (!mine.length) continue;
+    const t = byId.get(x.id);
+    if (t) {
+      const seen = new Set(t.offers.map((o) => String(o.depotId)));
+      for (const o of mine) if (!seen.has(String(o.depotId))) t.offers.push(o);
+      t.offers.sort((u, v) => u.price - v.price); t.best = t.offers[0];
+    } else { x.offers = mine; x.best = mine[0]; byId.set(x.id, x); near.push(x); }
+  }
+  return near;
 }
 function parseSearch(data) {
   const out = (Array.isArray(data) ? data : data.content || data.data || []).map(normalize).filter((p) => p.best);
