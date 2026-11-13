@@ -76,7 +76,20 @@ button:disabled{opacity:.5;cursor:default}
 .spark{display:block;width:100%;height:34px;color:var(--primary)}
 .facts{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:12px;color:var(--muted);margin-top:6px}
 .facts b{color:var(--ink);font-weight:600}
-.acts{display:flex;gap:6px;margin-top:8px}
+.acts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.cartbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:2px 0 8px}
+.ctotal{margin:10px 2px;padding:12px 14px;border-radius:16px;background:linear-gradient(135deg,var(--tc),var(--tc2));color:#fff;display:flex;justify-content:space-between;align-items:center}
+.ctotal b{font-size:20px}.ctotal small{opacity:.85;display:block;font-size:11.5px}
+.crow .rw{grid-template-columns:28px 40px minmax(0,1fr) auto;gap:8px;align-items:center}
+.crow.done .title{text-decoration:line-through;opacity:.5}.crow.done .thumb{opacity:.45}
+.chk{width:26px;height:26px;min-height:26px;padding:0;border-radius:50%;border:2px solid var(--muted);background:transparent;flex:none;font-size:15px;line-height:1;color:#fff}
+.crow.done .chk{background:var(--tc);border-color:var(--tc)}
+.qty{display:inline-flex;align-items:center;gap:2px;margin-top:3px}
+.qty button{min-height:28px;width:28px;padding:0;font-size:17px;line-height:1}
+.qty span{min-width:24px;text-align:center;font-weight:700;font-size:14px}
+.csub{font-weight:700}
+.cgone{opacity:.6;font-size:12px}
+
 .acts button{min-height:32px;padding:4px 12px;font-size:13px}
 
 .ghead{display:flex;align-items:center;gap:4px;padding:5px 6px 5px 12px;background:var(--soft);border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
@@ -110,7 +123,7 @@ button:disabled{opacity:.5;cursor:default}
 .panel h2{margin:10px 0 0;padding-top:12px;border-top:1px solid var(--line)}
 .panel h2:first-child{border-top:0;margin-top:0}
 
-.tabs{position:fixed;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(4,1fr);background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:10}
+.tabs{position:fixed;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(5,1fr);background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:10}
 .tabs button{background:transparent;color:var(--muted);border:0;border-radius:0;padding:6px 2px 5px;min-height:50px;font-size:10.5px;font-weight:600;display:grid;justify-items:center;align-content:center;gap:2px;position:relative}
 .tabs svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .tabs button.active{color:var(--primary)}
@@ -293,6 +306,12 @@ dialog .row.end button:not(.ghost){flex:2}
     <div id="feed-list" class="flist"></div>
   </section>
 
+  <section id="view-cart" class="view" hidden>
+    <div class="cartbar"><div id="cart-info" class="muted small"></div><div class="row"><button id="cart-clear-done" class="ghost sm" hidden>Alınanları temizle</button><button id="cart-clear" class="ghost sm danger" hidden>Tümünü sil</button></div></div>
+    <div id="cart-total"></div>
+    <div id="cart-list" class="flist"></div>
+  </section>
+
   <section id="view-settings" class="view" hidden>
     <form id="settings-form" class="panel form">
       <h2>Konum</h2>
@@ -359,6 +378,7 @@ dialog .row.end button:not(.ghost){flex:2}
   <button data-view="search" class="active"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Ara</button>
   <button data-view="watch"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Takip<i id="watch-count" class="count" hidden></i></button>
   <button data-view="feed"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>Değişimler</button>
+  <button data-view="cart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2.5l2.2 10.5a1.5 1.5 0 0 0 1.5 1.2h8.1a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.2"/><circle cx="9.5" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></svg>Sepet<i id="cart-count" class="count" hidden></i></button>
   <button data-view="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>Ayarlar</button>
 </nav>
 
@@ -393,7 +413,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.9.7', APP_DATE = '10 Kas 2026';
+const APP_VERSION = '1.10.0', APP_DATE = '13 Kas 2026';
 // Grup renkleri (20 renk)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri'], ['#FF3B30', 'Kırmızı'], ['#FF7F6B', 'Mercan'], ['#34C759', 'Yeşil'], ['#5EE6B5', 'Nane'], ['#8FA31E', 'Zeytin'], ['#C6E22E', 'Limon'], ['#14B8A6', 'Turkuaz'], ['#38BDF8', 'Gökmavisi'], ['#1E3A8A', 'Lacivert'], ['#A78BFA', 'Lavanta'], ['#C2185B', 'Vişne'], ['#A1724E', 'Kahve']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
@@ -412,11 +432,12 @@ const gcStyle = (hex) => { const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.s
 const KEY = 'market-takip-v1';
 const DEFAULT = {
   config: { scope: 'near', natStrat: '', lat: null, lon: null, distance: 3, ntfyTopic: '', intervalHours: 6, minDropPercent: 5, notifyRise: true, lastGroup: null, demo: false, proxy: '' },
-  watch: [], groups: [], feed: [], lastRun: null,
+  watch: [], groups: [], feed: [], cart: [], lastRun: null,
 };
 const merge = (j) => {
   const m = { ...JSON.parse(JSON.stringify(DEFAULT)), ...(j || {}), config: { ...DEFAULT.config, ...(j && j.config) } };
-  for (const k of ['watch', 'groups', 'feed']) if (!Array.isArray(m[k])) m[k] = [];
+  for (const k of ['watch', 'groups', 'feed', 'cart']) if (!Array.isArray(m[k])) m[k] = [];
+  m.cart = m.cart.filter((c) => c && typeof c.id === 'string').map((c) => ({ id: c.id, qty: Math.max(1, Math.min(99, parseInt(c.qty, 10) || 1)), done: !!c.done }));
   return m;
 };
 let db;
@@ -656,13 +677,17 @@ function show(view) {
   document.querySelectorAll('.view').forEach((v) => (v.hidden = v.id !== 'view-' + view));
   if (view === 'watch') renderWatch();
   if (view === 'feed') renderFeed();
+  if (view === 'cart') renderCart();
   if (view === 'settings') loadSettings();
   try { history.replaceState(null, '', '#' + view); } catch { /* file:// */ }
 }
 tabs.forEach((b) => b.addEventListener('click', () => show(b.dataset.view)));
 function currentView() { return document.querySelector('.view:not([hidden])').id.replace('view-', ''); }
-function refreshViews() { refreshCount(); const v = currentView(); if (v === 'watch') renderWatch(); if (v === 'feed') renderFeed(); }
-function refreshCount() { const el = $('#watch-count'); el.textContent = db.watch.length; el.hidden = !db.watch.length; }
+function refreshViews() { refreshCount(); const v = currentView(); if (v === 'watch') renderWatch(); if (v === 'feed') renderFeed(); if (v === 'cart') renderCart(); }
+function refreshCount() {
+  const el = $('#watch-count'); el.textContent = db.watch.length; el.hidden = !db.watch.length;
+  const c = $('#cart-count'), n = db.cart.filter((x) => !x.done && db.watch.some((w) => w.id === x.id)).length; c.textContent = n; c.hidden = !n;
+}
 function updateDemoBadge() { $('#demo').hidden = !db.config.demo; }
 
 const svg = (d, cls = '') => `<svg${cls ? ` class="${cls}"` : ''} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -994,7 +1019,7 @@ function cardHTML(w, cheapest) {
         <div class="facts">${range}<span>Son kontrol: ${w.last?.checkedAt ? when(w.last.checkedAt) : '—'}</span><span>Takibe alındı: ${shortDate(w.addedAt) || '—'}</span></div>
         ${others ? `<div class="facts"><span>Diğer marketler: ${others}</span></div>` : ''}
         ${w.lastError ? `<div class="facts errtxt">${esc(w.lastError)}</div>` : ''}
-        <div class="acts"><button class="ghost" data-edit="${esc(w.id)}">Düzenle</button><button class="ghost danger" data-remove="${esc(w.id)}">Takibi bırak</button></div>
+        <div class="acts"><button class="ghost" data-cart="${esc(w.id)}">${db.cart.some((c) => c.id === w.id) ? 'Sepette ✓' : '🛒 Sepete ekle'}</button><button class="ghost" data-edit="${esc(w.id)}">Düzenle</button><button class="ghost danger" data-remove="${esc(w.id)}">Takibi bırak</button></div>
       </div>
     </article>`;
 }
@@ -1081,9 +1106,15 @@ $('#watch-list').addEventListener('click', async (e) => {
     const r = await askItem(w.title, { target: w.targetPrice, groupId: w.groupId });
     if (r === undefined) return;
     w.targetPrice = r.target; w.groupId = r.groupId; save(); renderWatch();
+  } else if (d.cart) {
+    const i = db.cart.findIndex((c) => c.id === d.cart);
+    if (i >= 0) db.cart.splice(i, 1); else db.cart.push({ id: d.cart, qty: 1, done: false });
+    save(); refreshCount(); renderWatch();
+    setMsg($('#watch-msg'), i >= 0 ? 'Sepetten çıkarıldı.' : 'Sepete eklendi.');
   } else if (d.remove) {
     if (!confirm('Bu ürünü takipten çıkaralım mı?')) return;
-    db.watch = db.watch.filter((x) => x.id !== d.remove); save(); renderWatch(); setMsg($('#watch-msg'), '');
+    db.cart = db.cart.filter((c) => c.id !== d.remove);
+    db.watch = db.watch.filter((x) => x.id !== d.remove); save(); refreshCount(); renderWatch(); setMsg($('#watch-msg'), '');
   }
 });
 $('#add-group').addEventListener('click', async () => {
@@ -1101,6 +1132,39 @@ $('#check-now').addEventListener('click', async (e) => {
 
 // Değişimler
 const feedKey = (f) => `${f.t}|${f.id}|${f.kind}`;
+function renderCart() {
+  const rows = db.cart.map((c) => ({ c, w: db.watch.find((x) => x.id === c.id) })).filter((x) => x.w);
+  const todo = rows.filter((x) => !x.c.done), done = rows.filter((x) => x.c.done);
+  const sum = (a) => a.reduce((t, x) => t + (x.w.last?.price || 0) * x.c.qty, 0);
+  $('#cart-info').textContent = rows.length ? `${todo.length} alınacak${done.length ? ` · ${done.length} alındı` : ''}` : '';
+  $('#cart-clear').hidden = !rows.length; $('#cart-clear-done').hidden = !done.length;
+  $('#cart-total').innerHTML = rows.length ? `<div class="ctotal"><div><small>Tahmini toplam (alınacaklar)</small><b>${tl(sum(todo))}</b></div><div style="text-align:right"><small>Tüm sepet</small><b>${tl(sum(rows))}</b></div></div>` : '';
+  const row = ({ c, w }) => {
+    const uni = unitInfo(w);
+    return `<article class="card crow${c.done ? ' done' : ''}" data-crow="${esc(w.id)}"><div class="rw">
+      <button class="chk" data-ctoggle="${esc(w.id)}" aria-label="Alındı">${c.done ? '✓' : ''}</button>${thumb(w.imageUrl, w.title)}
+      <div class="mid"><div class="title">${esc(w.title)}</div>
+        <div class="meta">${uni ? `<span class="unit">${unitLabel(uni)}</span>` : ''}${w.last?.market ? mk(w.last.market) : ''}</div>
+        <div class="qty"><button class="ghost" data-cminus="${esc(w.id)}" aria-label="Azalt">−</button><span>${c.qty}</span><button class="ghost" data-cplus="${esc(w.id)}" aria-label="Arttır">+</button></div></div>
+      <div class="side">${w.last ? priceHTML(w.last.price * c.qty) : '—'}${c.qty > 1 && w.last ? `<div class="muted small">${c.qty} × ${tl(w.last.price)}</div>` : ''}<button class="ghost sm danger" data-cdel="${esc(w.id)}" style="margin-top:4px">Çıkar</button></div>
+    </div></article>`;
+  };
+  $('#cart-list').innerHTML = rows.length
+    ? todo.map(row).join('') + (done.length ? `<div class="cgone muted small" style="margin:10px 2px 4px">Alınanlar</div>` + done.map(row).join('') : '')
+    : '<div class="empty muted">Sepet boş. Takip sekmesinde bir ürünü açıp “Sepete ekle”ye dokun.</div>';
+}
+$('#cart-list').addEventListener('click', (e) => {
+  const t = e.target.closest('button'); if (!t) return;
+  const d = t.dataset, id = d.ctoggle || d.cminus || d.cplus || d.cdel;
+  const c = db.cart.find((x) => x.id === id); if (!c) return;
+  if (d.ctoggle) c.done = !c.done;
+  else if (d.cplus) c.qty = Math.min(99, c.qty + 1);
+  else if (d.cminus) c.qty = Math.max(1, c.qty - 1);
+  else if (d.cdel) db.cart = db.cart.filter((x) => x !== c);
+  save(); refreshCount(); renderCart();
+});
+$('#cart-clear-done').addEventListener('click', () => { db.cart = db.cart.filter((c) => !c.done); save(); refreshCount(); renderCart(); });
+$('#cart-clear').addEventListener('click', () => { if (!confirm('Sepetteki tüm ürünler silinsin mi? (Takip listesi etkilenmez)')) return; db.cart = []; save(); refreshCount(); renderCart(); });
 function renderFeed() {
   const label = { target: 'Hedef fiyata ulaştı', up: 'Fiyat arttı', down: 'Fiyat düştü', drop: 'Fiyat düştü' };
   $('#feed-count').textContent = db.feed.length ? `${db.feed.length} değişim` : '';
@@ -1291,7 +1355,7 @@ $('#ver').textContent = `${APP_VERSION} (${APP_DATE})`;
 applyTheme(); updateDemoBadge(); refreshCount();
 const start = (location.hash || '').slice(1);
 if (!db.config.demo && db.config.scope !== 'all' && (db.config.lat == null || db.config.lon == null)) { show('settings'); setMsg($('#settings-msg'), 'Başlamak için konumunu gir (veya demo modunu aç).'); }
-else show(['search', 'watch', 'feed', 'settings'].includes(start) ? start : (db.watch.length ? 'watch' : 'search'));
+else show(['search', 'watch', 'feed', 'cart', 'settings'].includes(start) ? start : (db.watch.length ? 'watch' : 'search'));
 autoCheck();
 setInterval(autoCheck, 30 * 60e3);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) autoCheck(); });
