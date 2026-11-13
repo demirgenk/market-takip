@@ -393,7 +393,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.9.5', APP_DATE = '10 Kas 2026';
+const APP_VERSION = '1.9.6', APP_DATE = '10 Kas 2026';
 // Grup renkleri (20 renk)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri'], ['#FF3B30', 'Kırmızı'], ['#FF7F6B', 'Mercan'], ['#34C759', 'Yeşil'], ['#5EE6B5', 'Nane'], ['#8FA31E', 'Zeytin'], ['#C6E22E', 'Limon'], ['#14B8A6', 'Turkuaz'], ['#38BDF8', 'Gökmavisi'], ['#1E3A8A', 'Lacivert'], ['#A78BFA', 'Lavanta'], ['#C2185B', 'Vişne'], ['#A1724E', 'Kahve']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
@@ -468,7 +468,7 @@ async function nearestDepots(c = db.config) {
 }
 function normalize(item) {
   const offers = (item.productDepotInfoList || [])
-    .map((d) => ({ depotId: d.depotId, market: d.marketAdi || d.depotName || '?', price: Number(d.price), unitPrice: d.unitPrice, indexTime: d.indexTime }))
+    .map((d) => ({ depotId: d.depotId, market: d.marketAdi || d.depotName || '?', price: Number(d.price), unitPrice: d.unitPrice, indexTime: d.indexTime, depot: String(d.depotName || d.marketName || '') }))
     .filter((o) => Number.isFinite(o.price)).sort((a, b) => a.price - b.price);
   return { id: String(item.id), title: item.title, brand: item.brand || '', imageUrl: item.imageUrl || '', offers, best: offers[0] || null };
 }
@@ -1178,6 +1178,12 @@ $('#geocode').addEventListener('click', async () => {
 });
 
 // Bağlantı testi: hangi adımda takıldığını gösterir
+// A101 fiyatı olan ürün sayısı ve A101 şubesi/depo adı örnekleri (konumlu ve konumsuz aramayı karşılaştırmak için)
+function a101Report(r) {
+  const offs = r.flatMap((p) => p.offers.filter((o) => /a101/i.test(o.market)));
+  const names = [...new Set(offs.map((o) => o.depot || o.depotId))].slice(0, 4).join(' | ');
+  return `${new Set(offs.map((o) => o.depotId)).size ? r.filter((p) => p.offers.some((o) => /a101/i.test(o.market))).length : 0} tanesinde A101 fiyatı var${names ? ` (örnek depo: ${names})` : ''}`;
+}
 $('#diag').addEventListener('click', async () => {
   const out = $('#diag-out'), btn = $('#diag');
   const { lat, lon, distance } = db.config;
@@ -1196,8 +1202,7 @@ $('#diag').addEventListener('click', async () => {
     for (const k of Object.keys(NAT)) {
       await step(`Yöntem "${k}" — "yumurta 30" araması`, async () => {
         const r = parseSearch(await NAT[k]({ keywords: 'yumurta 30' }));
-        const a101 = r.filter((p) => p.offers.some((o) => /a101/i.test(o.market))).length;
-        return `${r.length} ürün, ${a101} tanesinde A101 fiyatı var${r.total ? `, toplam ${r.total}` : ''}`;
+        return `${r.length} ürün, ${a101Report(r)}${r.total ? `, toplam ${r.total}` : ''}`;
       });
     }
     log(`Seçili yöntem: ${db.config.natStrat || '(henüz belirlenmedi)'}\n\nBu sonucu bana yapıştırırsan buradan ilerlerim.`);
@@ -1208,6 +1213,8 @@ $('#diag').addEventListener('click', async () => {
   const ok1 = await step('Yakın şubeler (/nearest)', async () => { depotCache.clear(); depots = await nearestDepots(); return `${depots.length} şube`; });
   if (ok1) {
     await step('Ürün adıyla arama (/search)', async () => { const r = await realSearch({ keywords: 'süt' }); return `${r.length} ürün`; });
+    await step('"yumurta adet 30" — şehir/konum aramasında', async () => { const r = await realSearch({ keywords: 'yumurta adet 30' }); return `${r.length} ürün, ${a101Report(r)}`; });
+    await step('"yumurta adet 30" — konumsuz aramada', async () => { const r = parseSearch(await NAT.none({ keywords: 'yumurta adet 30' })); return `${r.length} ürün, ${a101Report(r)}`; });
     const w = db.watch[0];
     if (w) await step(`Takipteki ürünü adıyla bulma: ${w.title}`, async () => { const h = await lookup(w); return h ? `bulundu, güncel fiyat ${tl(h.best.price)} (${h.best.market})` : 'bulunamadı (ürün bu şubelerde satılmıyor olabilir)'; });
   }
