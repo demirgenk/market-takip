@@ -301,6 +301,10 @@ dialog .row.end button:not(.ghost){flex:2}
         <select name="scope"><option value="near">Konumuma yakın şubeler</option><option value="all">Türkiye geneli (deneysel, konum gerekmez)</option></select>
       </label>
       <p class="muted small">Türkiye geneli seçilirse konum bilgisi gönderilmez; fiyatlar tüm şubelerden gelir. Çalışıp çalışmadığını "Bağlantıyı test et" ile görebilirsin.</p>
+      <label>Şehir seç (o şehrin tüm şubeleri)
+        <select name="city" id="city"><option value="">— Şehir seç —</option></select>
+      </label>
+      <p class="muted small" id="city-note">Şehri seçince il merkezi ve o ilin çevresini kapsayan yarıçap otomatik doldurulur; Kaydet'e basman yeterli. Yarıçap büyüdükçe arama biraz yavaşlayabilir.</p>
       <div class="grid2">
         <label>Enlem<input name="lat" inputmode="decimal" placeholder="41.0082"></label>
         <label>Boylam<input name="lon" inputmode="decimal" placeholder="28.9784"></label>
@@ -309,7 +313,7 @@ dialog .row.end button:not(.ghost){flex:2}
       <label>Veya adresten bul (mahalle, ilçe, şehir)
         <span class="row"><input id="addr" placeholder="ör. Kadıköy Caferağa, İstanbul" autocomplete="off"><button type="button" id="geocode" class="ghost">Bul</button></span>
       </label>
-      <label>Arama mesafesi (km)<input name="distance" type="number" min="1" max="20"></label>
+      <label>Arama mesafesi (km)<input name="distance" type="number" min="1" max="100"></label>
 
       <h2>Kontrol</h2>
       <p class="muted small">Uygulama kapalıyken kontrol yapılamaz. Açtığında, son kontrol bu süreden eskiyse fiyatlar kendiliğinden yenilenir.</p>
@@ -389,7 +393,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.9.4', APP_DATE = '10 Kas 2026';
+const APP_VERSION = '1.9.5', APP_DATE = '10 Kas 2026';
 // Grup renkleri (20 renk)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri'], ['#FF3B30', 'Kırmızı'], ['#FF7F6B', 'Mercan'], ['#34C759', 'Yeşil'], ['#5EE6B5', 'Nane'], ['#8FA31E', 'Zeytin'], ['#C6E22E', 'Limon'], ['#14B8A6', 'Turkuaz'], ['#38BDF8', 'Gökmavisi'], ['#1E3A8A', 'Lacivert'], ['#A78BFA', 'Lavanta'], ['#C2185B', 'Vişne'], ['#A1724E', 'Kahve']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
@@ -1114,11 +1118,21 @@ $('#feed-clear').addEventListener('click', () => {
 });
 
 // Ayarlar
+// il merkezi koordinatları ve ili kapsayan yaklaşık yarıçap (km)
+const CITIES = 'Adana,37.0000,35.3213,25;Adıyaman,37.7648,38.2786,15;Afyonkarahisar,38.7507,30.5567,15;Ağrı,39.7191,43.0503,12;Aksaray,38.3687,34.0370,12;Amasya,40.6499,35.8353,12;Ankara,39.9334,32.8597,40;Antalya,36.8969,30.7133,40;Ardahan,41.1105,42.7022,10;Artvin,41.1828,41.8183,10;Aydın,37.8560,27.8416,20;Balıkesir,39.6484,27.8826,20;Bartın,41.6344,32.3375,10;Batman,37.8812,41.1351,12;Bayburt,40.2552,40.2249,8;Bilecik,40.1501,29.9792,10;Bingöl,38.8855,40.4980,10;Bitlis,38.4006,42.1095,10;Bolu,40.7392,31.6116,12;Burdur,37.7203,30.2908,12;Bursa,40.1826,29.0665,30;Çanakkale,40.1553,26.4142,15;Çankırı,40.6013,33.6134,10;Çorum,40.5506,34.9556,15;Denizli,37.7765,29.0864,20;Diyarbakır,37.9144,40.2306,25;Düzce,40.8438,31.1565,12;Edirne,41.6818,26.5623,12;Elazığ,38.6810,39.2264,15;Erzincan,39.7500,39.5000,10;Erzurum,39.9055,41.2658,20;Eskişehir,39.7767,30.5206,20;Gaziantep,37.0662,37.3833,25;Giresun,40.9128,38.3895,12;Gümüşhane,40.4603,39.4814,8;Hakkari,37.5744,43.7408,8;Hatay,36.2021,36.1600,25;Iğdır,39.9237,44.0450,10;Isparta,37.7648,30.5566,12;Mersin,36.8121,34.6415,30;İstanbul,41.0082,28.9784,60;İzmir,38.4237,27.1428,40;Kahramanmaraş,37.5858,36.9371,18;Karabük,41.2061,32.6204,10;Karaman,37.1759,33.2287,10;Kars,40.6013,43.0975,10;Kastamonu,41.3887,33.7827,10;Kayseri,38.7312,35.4787,25;Kırıkkale,39.8468,33.5153,10;Kırklareli,41.7333,27.2167,10;Kırşehir,39.1425,34.1709,10;Kilis,36.7184,37.1212,8;Kocaeli,40.8533,29.8815,30;Konya,37.8746,32.4932,30;Kütahya,39.4167,29.9833,15;Malatya,38.3552,38.3095,20;Manisa,38.6191,27.4289,25;Mardin,37.3212,40.7245,15;Muğla,37.2153,28.3636,40;Muş,38.9462,41.7539,10;Nevşehir,38.6939,34.6857,10;Niğde,37.9667,34.6833,10;Ordu,40.9839,37.8764,15;Osmaniye,37.0742,36.2478,10;Rize,41.0201,40.5234,12;Sakarya,40.7569,30.3783,25;Samsun,41.2867,36.3300,25;Siirt,37.9333,41.9500,10;Sinop,42.0231,35.1531,10;Sivas,39.7477,37.0179,15;Şanlıurfa,37.1591,38.7969,25;Şırnak,37.5164,42.4611,10;Tekirdağ,40.9833,27.5167,20;Tokat,40.3167,36.5500,12;Trabzon,41.0027,39.7168,20;Tunceli,39.1079,39.5401,8;Uşak,38.6823,29.4082,12;Van,38.4891,43.4089,20;Yalova,40.6500,29.2667,10;Yozgat,39.8181,34.8147,12;Zonguldak,41.4564,31.7987,15'.split(';').map((r) => { const [n, la, lo, d] = r.split(','); return [n, Number(la), Number(lo), Number(d)]; });
+$('#city').innerHTML += CITIES.map(([n]) => `<option value="${n}">${n}</option>`).join('');
+$('#city').addEventListener('change', (e) => {
+  const c = CITIES.find(([n]) => n === e.target.value), f = $('#settings-form').elements;
+  if (!c) return;
+  f.lat.value = c[1]; f.lon.value = c[2]; f.distance.value = c[3]; $('#addr').value = '';
+  setMsg($('#settings-msg'), `${c[0]} seçildi (yarıçap ${c[3]} km). Kaydet'e bas.`);
+});
 const FIELDS = ['lat', 'lon', 'distance', 'intervalHours', 'minDropPercent', 'ntfyTopic', 'proxy'];
 function loadSettings() {
   const f = $('#settings-form').elements;
   for (const k of FIELDS) f[k].value = db.config[k] ?? '';
   f.scope.value = db.config.scope === 'all' ? 'all' : 'near';
+  f.city.value = db.config.city || '';
   f.demo.checked = !!db.config.demo;
   f.notifyRise.checked = db.config.notifyRise !== false;
 }
@@ -1127,7 +1141,8 @@ $('#settings-form').addEventListener('submit', (e) => {
   const f = e.currentTarget.elements, c = db.config;
   const num = (v) => { v = String(v).trim().replace(',', '.'); return v === '' ? null : Number(v); };
   c.lat = num(f.lat.value); c.lon = num(f.lon.value);
-  c.distance = Math.min(Math.max(num(f.distance.value) || 3, 1), 20);
+  c.distance = Math.min(Math.max(num(f.distance.value) || 3, 1), 100);
+  c.city = CITIES.some(([n]) => n === f.city.value) && (CITIES.find(([n]) => n === f.city.value)[1] === c.lat) ? f.city.value : '';
   c.intervalHours = Math.min(Math.max(num(f.intervalHours.value) || 6, 1), 48);
   c.minDropPercent = Math.min(Math.max(num(f.minDropPercent.value) || 5, 1), 90);
   const sc = f.scope.value === 'all' ? 'all' : 'near'; if (sc !== c.scope) c.natStrat = ''; c.scope = sc;
