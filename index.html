@@ -389,7 +389,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.9.1', APP_DATE = '10 Kas 2026';
+const APP_VERSION = '1.9.2', APP_DATE = '10 Kas 2026';
 // Grup renkleri (20 renk)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri'], ['#FF3B30', 'Kırmızı'], ['#FF7F6B', 'Mercan'], ['#34C759', 'Yeşil'], ['#5EE6B5', 'Nane'], ['#8FA31E', 'Zeytin'], ['#C6E22E', 'Limon'], ['#14B8A6', 'Turkuaz'], ['#38BDF8', 'Gökmavisi'], ['#1E3A8A', 'Lacivert'], ['#A78BFA', 'Lavanta'], ['#C2185B', 'Vişne'], ['#A1724E', 'Kahve']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
@@ -717,6 +717,17 @@ document.addEventListener('click', (e) => { const b = e.target.closest('[data-cl
 let lastResults = [], lastQuery = '', lastPage = 0, allMode = false, searchTok = 0, fetching = false, autoT = 0;
 const MAX_ALL_PAGES = 20;
 const filt = { markets: new Set(), min: '', max: '', sort: 'rel' };
+// "yumurta 30" gibi çok kelimeli aramada her kelime ürün adında (veya markasında) geçmeli; sayılar tam sayı olarak eşleşir (30, 130'u eşleştirmez)
+const fold = (t) => String(t || '').toLocaleLowerCase('tr').replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ş/g, 's').replace(/ü/g, 'u');
+const queryTokens = (q) => fold(q).split(/[\s,;]+/).filter(Boolean);
+const titleOk = (p) => {
+  const toks = queryTokens(lastQuery);
+  if (toks.length < 2) return true;
+  const hay = fold(p.title + ' ' + (p.brand || ''));
+  return toks.every((t) => /^\d+([.,]\d+)?$/.test(t)
+    ? new RegExp('(^|[^0-9])' + t.replace(/[.,]/g, '[.,]') + '([^0-9]|$)').test(hay)
+    : hay.includes(t));
+};
 const numOf = (v) => { const n = parseFloat(String(v).replace(',', '.')); return Number.isFinite(n) ? n : null; };
 const filtActive = () => filt.markets.size > 0 || numOf(filt.min) != null || numOf(filt.max) != null || filt.sort !== 'rel';
 function renderFilters() {
@@ -724,7 +735,7 @@ function renderFilters() {
   if (!lastResults.length) { box.hidden = true; return; }
   box.hidden = false;
   const cnt = new Map();
-  lastResults.forEach((p) => new Set(p.offers.map((o) => o.market)).forEach((m) => cnt.set(m, (cnt.get(m) || 0) + 1)));
+  lastResults.filter(titleOk).forEach((p) => new Set(p.offers.map((o) => o.market)).forEach((m) => cnt.set(m, (cnt.get(m) || 0) + 1)));
   [...filt.markets].forEach((m) => { if (!cnt.has(m)) filt.markets.delete(m); });
   const names = [...cnt.keys()].sort((a, b) => cnt.get(b) - cnt.get(a) || a.localeCompare(b, 'tr'));
   $('#f-markets').innerHTML = `<button type="button" class="mk${filt.markets.size ? '' : ' on'}" data-fm="">Tümü</button>` +
@@ -823,13 +834,14 @@ function renderResults() {
   const lo = numOf(filt.min), hi = numOf(filt.max);
   let view = [];
   lastResults.forEach((p, i) => {
+    if (!titleOk(p)) return;
     const offers = p.offers.filter((o) => (!filt.markets.size || filt.markets.has(o.market)) && (lo == null || o.price >= lo) && (hi == null || o.price <= hi));
     if (offers.length) view.push({ i, p, offers, best: offers[0], title: p.title, last: { price: offers[0].price } });
   });
   if (filt.sort === 'p-asc') view.sort((a, b) => a.best.price - b.best.price);
   else if (filt.sort === 'p-desc') view.sort((a, b) => b.best.price - a.best.price);
   else if (filt.sort === 'u-asc') view = sortItems(view);
-  $('#f-count').textContent = lastResults.length ? `${view.length} / ${lastResults.length} ürün gösteriliyor (${allMode ? 'tüm sayfalar' : 'bu sayfa'})` : '';
+  $('#f-count').textContent = lastResults.length ? `${view.length} / ${lastResults.length} ürün gösteriliyor (${allMode ? 'tüm sayfalar' : 'bu sayfa'})${queryTokens(lastQuery).length > 1 ? ' · hepsini içerenler' : ''}` : '';
   $('#f-clear').hidden = !filtActive();
   if (!view.length && lastResults.length) { $('#results').innerHTML = '<div class="gempty">Filtreye uyan ürün yok. Filtreyi gevşetmeyi dene.</div>'; return; }
   $('#results').innerHTML = view.map(({ i, p, offers, best }) => {
