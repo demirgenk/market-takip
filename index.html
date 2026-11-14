@@ -77,16 +77,18 @@ button:disabled{opacity:.5;cursor:default}
 .facts{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:12px;color:var(--muted);margin-top:6px}
 .facts b{color:var(--ink);font-weight:600}
 .acts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
-.cartbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:2px 0 8px}
-.ctotal{margin:10px 2px;padding:12px 14px;border-radius:16px;background:linear-gradient(135deg,var(--tc),var(--tc2));color:#fff;display:flex;justify-content:space-between;align-items:center}
-.ctotal b{font-size:20px}.ctotal small{opacity:.85;display:block;font-size:11.5px}
-.crow .rw{grid-template-columns:28px 40px minmax(0,1fr) auto;gap:8px;align-items:center}
+.cartbar{display:flex;justify-content:space-between;align-items:center;gap:6px;margin:0 0 4px}
+.cartbar .small{line-height:1.2}
+.ctotal{margin:6px 0;padding:8px 12px;border-radius:16px;background:linear-gradient(135deg,var(--tc),var(--tc2));color:#fff;display:flex;justify-content:space-between;align-items:center}
+.ctotal b{font-size:17px}.ctotal small{opacity:.85;display:block;font-size:11.5px}
+.crow.card{padding:4px 10px}.crow .rw{grid-template-columns:22px 32px minmax(0,1fr) auto 24px;gap:6px;align-items:center}
+.xbtn{min-height:24px;width:24px;padding:0;font-size:12px;border-radius:7px}.crow .thumb{width:32px;height:32px;font-size:13px;border-radius:8px}.crow .title{font-size:13.5px;line-height:1.2}.crow .meta{margin-top:1px;gap:4px}.crow .side{gap:0}.crow .side .pr{font-size:15px}
 .crow.done .title{text-decoration:line-through;opacity:.5}.crow.done .thumb{opacity:.45}
-.chk{width:26px;height:26px;min-height:26px;padding:0;border-radius:50%;border:2px solid var(--muted);background:transparent;flex:none;font-size:15px;line-height:1;color:#fff}
+.chk{width:22px;height:22px;min-height:22px;padding:0;border-radius:50%;border:2px solid var(--muted);background:transparent;flex:none;font-size:15px;line-height:1;color:#fff}
 .crow.done .chk{background:var(--tc);border-color:var(--tc)}
-.qty{display:inline-flex;align-items:center;gap:2px;margin-top:3px}
-.qty button{min-height:28px;width:28px;padding:0;font-size:17px;line-height:1}
-.qty span{min-width:24px;text-align:center;font-weight:700;font-size:14px}
+.qty{display:flex;align-items:center;justify-content:flex-end;gap:1px;margin-top:1px}
+.qty button{min-height:22px;width:24px;padding:0;font-size:15px;line-height:1;border-radius:7px}
+.qty span{min-width:20px;text-align:center;font-weight:700;font-size:13px}
 .csub{font-weight:700}
 .cgone{opacity:.6;font-size:12px}
 
@@ -413,7 +415,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('tr-TR', { day: 'numeri
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const round2 = (n) => Math.round(n * 100) / 100;
 const setMsg = (el, text, err = false) => { el.textContent = text || ''; el.classList.toggle('err', err); };
-const APP_VERSION = '1.10.4', APP_DATE = '13 Kas 2026';
+const APP_VERSION = '1.10.5', APP_DATE = '13 Kas 2026';
 // Grup renkleri (20 renk)
 const PALETTE = [['#2979FF', 'Mavi'], ['#00D4E8', 'Camgöbeği'], ['#FFC400', 'Sarı'], ['#FF6D00', 'Turuncu'], ['#FF2D95', 'Pembe'], ['#B14DFF', 'Mor'], ['#5B6CFF', 'Çivit'], ['#8A94A6', 'Gri'], ['#FF3B30', 'Kırmızı'], ['#FF7F6B', 'Mercan'], ['#34C759', 'Yeşil'], ['#5EE6B5', 'Nane'], ['#8FA31E', 'Zeytin'], ['#C6E22E', 'Limon'], ['#14B8A6', 'Turkuaz'], ['#38BDF8', 'Gökmavisi'], ['#1E3A8A', 'Lacivert'], ['#A78BFA', 'Lavanta'], ['#C2185B', 'Vişne'], ['#A1724E', 'Kahve']];
 // 1.5 sürümündeki eski soluk renkler, yeni canlı karşılıklarına taşınır
@@ -1175,12 +1177,13 @@ function renderCart() {
       <button class="chk" data-ctoggle="${esc(w.id)}" aria-label="Alındı">${c.done ? '✓' : ''}</button>${thumb(w.imageUrl, w.title)}
       <div class="mid"><div class="title">${esc(w.title)}</div>
         <div class="meta">${uni ? `<span class="unit">${unitLabel(uni)}</span>` : ''}${w.last?.market ? mk(w.last.market) : ''}</div>
-        <div class="qty"><button class="ghost" data-cminus="${esc(w.id)}" aria-label="Azalt">−</button><span>${c.qty}</span><button class="ghost" data-cplus="${esc(w.id)}" aria-label="Arttır">+</button></div></div>
-      <div class="side">${w.last ? priceHTML(w.last.price * c.qty) : '—'}${c.qty > 1 && w.last ? `<div class="muted small">${c.qty} × ${tl(w.last.price)}</div>` : ''}<button class="ghost sm danger" data-cdel="${esc(w.id)}" style="margin-top:4px">Çıkar</button></div>
+</div>
+      <div class="side">${w.last ? priceHTML(w.last.price * c.qty) : '—'}<div class="qty"><button class="ghost" data-cminus="${esc(w.id)}" aria-label="Azalt">−</button><span>${c.qty}</span><button class="ghost" data-cplus="${esc(w.id)}" aria-label="Arttır">+</button></div></div>
+      <button class="ghost danger xbtn" data-cdel="${esc(w.id)}" aria-label="Sepetten çıkar">✕</button>
     </div></article>`;
   };
   $('#cart-list').innerHTML = rows.length
-    ? todo.map(row).join('') + (done.length ? `<div class="cgone muted small" style="margin:10px 2px 4px">Alınanlar</div>` + done.map(row).join('') : '')
+    ? todo.map(row).join('') + (done.length ? `<div class="cgone muted small" style="margin:6px 2px 2px">Alınanlar</div>` + done.map(row).join('') : '')
     : '<div class="empty muted">Sepet boş. Takip sekmesinde bir ürünü açıp “Sepete ekle”ye dokun.</div>';
 }
 $('#cart-list').addEventListener('click', (e) => {
@@ -1210,12 +1213,20 @@ function renderFeed() {
         <div class="prev">${f.from != null ? `${tl(f.from)} → ` : ''}<b>${tl(f.to)}</b> · ${mk(f.market)}</div></div>
       <div class="side">${priceHTML(f.to)}${delta}</div>
     </div>
-    <div class="more"><div class="acts"><button class="ghost danger" data-fdel="${esc(feedKey(f))}">Bu kaydı sil</button></div></div></article>`;
+    <div class="more"><div class="acts">${db.watch.some((w) => w.id === f.id) ? `<button class="ghost" data-fcart="${esc(f.id)}">${db.cart.some((c) => c.id === f.id) ? 'Sepette ✓' : '🛒 Sepete ekle'}</button>` : ''}<button class="ghost danger" data-fdel="${esc(feedKey(f))}">Bu kaydı sil</button></div></div></article>`;
   }).join('') : '<p class="empty">Henüz bir fiyat değişimi yakalanmadı. Takip listendeki ürünlerin fiyatı değiştiğinde burada görünür.</p>';
 }
 $('#feed-list').addEventListener('click', (e) => {
   const del = e.target.closest('[data-fdel]');
   if (del) { const k = del.dataset.fdel; db.feed = db.feed.filter((f) => feedKey(f) !== k); save(); renderFeed(); return; }
+  const cb = e.target.closest('[data-fcart]');
+  if (cb) {
+    const id = cb.dataset.fcart, i = db.cart.findIndex((c) => c.id === id);
+    if (i >= 0) db.cart.splice(i, 1); else db.cart.push({ id, qty: 1, done: false });
+    save(); refreshCount(); renderFeed(); // açık kalan satır kapanmasın
+    const r = document.querySelector(`[data-frow] [data-fcart="${CSS.escape(id)}"]`); if (r) r.closest('[data-frow]').classList.add('open');
+    return;
+  }
   const row = e.target.closest('[data-frow]');
   if (row) row.classList.toggle('open');
 });
